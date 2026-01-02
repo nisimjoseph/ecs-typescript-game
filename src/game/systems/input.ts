@@ -8,6 +8,7 @@
  * - Input resource: Reads keyboard state
  * - Player entities: Updates position, velocity, rotation
  * - Commands: Spawns bullets
+ * - SoundManager: Plays shooting sound effects
  */
 
 import { World, Time } from '../../ecs';
@@ -25,7 +26,7 @@ import {
   Collider,
   Lifetime,
 } from '../components';
-import { Input, GameConfig, GameState, ShootCooldown, Logger } from '../resources';
+import { Input, GameConfig, GameState, ShootCooldown, Logger, SoundManager } from '../resources';
 
 /**
  * Clear input state at the start of each frame.
@@ -181,6 +182,12 @@ export function playerShootSystem(world: World): void {
     .insert(new Lifetime(2));
 
   cooldown.shoot();
+
+  // Play shoot sound
+  const soundManager = world.getResource(SoundManager);
+  if (soundManager) {
+    soundManager.playPlayerShoot();
+  }
 
   if (logger) {
     logger.system('Bullet spawned');

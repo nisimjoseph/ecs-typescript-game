@@ -8,16 +8,18 @@
  * - Destroys all enemies within 100px radius
  * - Deals 50% damage to enemies within 100-200px radius
  * - Creates explosion effect
+ * - Plays bomb and explosion sound effects
  * 
  * Interacts with:
  * - Shield/Turbo components: Checks if full, drains on use
  * - Enemy entities: Applies damage based on distance
  * - Explosion component: Creates visual effect
+ * - SoundManager: Plays bomb detonation and enemy explosion sounds
  */
 
 import { World, Time } from '../../ecs';
-import { Position, Health, Shield, Turbo, Player, Enemy, Explosion } from '../components';
-import { Input, Logger, GameState, GameConfig } from '../resources';
+import { Position, Health, Shield, Turbo, Player, Enemy, Boss, Explosion } from '../components';
+import { Input, Logger, GameState, GameConfig, SoundManager } from '../resources';
 
 /** Inner radius - instant kill zone */
 const BOMB_INNER_RADIUS = 100;
@@ -88,6 +90,9 @@ export function bombSystem(world: World): void {
       logger.system('💣 BOMB DETONATED! Shield and Turbo depleted.');
     }
 
+    // Play bomb sound effect
+    const soundManager = world.getResource(SoundManager);
+
     // Create bomb explosion effect (larger, multi-ring)
     commands
       .spawn()
@@ -99,6 +104,11 @@ export function bombSystem(world: World): void {
       .spawn()
       .insert(new Position(playerPos.x, playerPos.y))
       .insert(new Explosion(BOMB_INNER_RADIUS, 0.5, '#ffff00'));
+
+    // Play bomb sound effect
+    if (soundManager) {
+      soundManager.playBomb();
+    }
 
     // Query all enemies and apply damage based on distance
     const enemyQuery = world.query(Position, Health, Enemy);
@@ -112,6 +122,16 @@ export function bombSystem(world: World): void {
       if (distance <= BOMB_INNER_RADIUS) {
         // Kill enemy
         enemyHealth.current = 0;
+
+        // Play explosion sound (boss vs regular)
+        if (soundManager) {
+          const isBoss = world.hasComponent(enemyEntity, Boss);
+          if (isBoss) {
+            soundManager.playBossExplosion();
+          } else {
+            soundManager.playEnemyExplosion();
+          }
+        }
 
         // Spawn explosion
         commands
@@ -138,6 +158,16 @@ export function bombSystem(world: World): void {
         // If enemy has less than 50% health, kill it
         if (enemyHealth.current <= halfHealth) {
           enemyHealth.current = 0;
+
+          // Play explosion sound (boss vs regular)
+          if (soundManager) {
+            const isBoss = world.hasComponent(enemyEntity, Boss);
+            if (isBoss) {
+              soundManager.playBossExplosion();
+            } else {
+              soundManager.playEnemyExplosion();
+            }
+          }
 
           commands
             .spawn()

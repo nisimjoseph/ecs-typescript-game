@@ -1,13 +1,15 @@
 /**
  * @module game/logic/collision_events
- * @description Enhanced collision system with event sending.
+ * @description Enhanced collision system with event sending and sound effects.
  * 
  * Combines collision detection with the event system for decoupled communication.
+ * Also triggers appropriate sound effects for collisions.
  * 
  * Interacts with:
  * - Collision detection: Checks entity overlaps
  * - GameEvents: Sends collision, damage, score events
  * - Observer system: Triggers entity lifecycle hooks
+ * - SoundManager: Plays explosion, hit, power-up sounds
  */
 
 import { World, ObserverRegistry, system, Stage } from '../../ecs';
@@ -26,8 +28,9 @@ import {
   Shield,
   Sprite,
   Explosion,
+  Boss,
 } from '../components';
-import { GameConfig, GameState } from '../resources';
+import { GameConfig, GameState, SoundManager } from '../resources';
 import {
   GameEvents,
   BulletHitEvent,
@@ -45,6 +48,7 @@ export function collisionWithEventsSystem(world: World): void {
   const events = world.getResource(GameEvents);
   const gameState = world.getResource(GameState);
   const registry = world.getResource(ObserverRegistry);
+  const soundManager = world.getResource(SoundManager);
   const commands = world.getCommands();
 
   if (!events || gameState?.isGameOver) return;
@@ -81,6 +85,18 @@ export function collisionWithEventsSystem(world: World): void {
 
         // Check if enemy died
         if (enemyHealth.isDead()) {
+          // Check if this enemy is a boss
+          const isBoss = world.hasComponent(enemyEntity, Boss);
+          
+          // Play appropriate explosion sound
+          if (soundManager) {
+            if (isBoss) {
+              soundManager.playBossExplosion();
+            } else {
+              soundManager.playEnemyExplosion();
+            }
+          }
+
           // Trigger remove observer
           if (registry) {
             triggerDespawnObserver(registry, enemyEntity, Enemy);
@@ -149,6 +165,11 @@ export function collisionWithEventsSystem(world: World): void {
         const damageAmount = gameState ? gameState.getScaledDamage(baseDamage) : baseDamage;
         playerHealth.takeDamage(damageAmount);
 
+        // Play player hit sound
+        if (soundManager) {
+          soundManager.playPlayerPowerDown();
+        }
+
         // Send player hit event
         events.playerHit.send(new PlayerHitEvent(
           enemyEntity,
@@ -181,6 +202,13 @@ export function collisionWithEventsSystem(world: World): void {
 
         // Check if player died
         if (playerHealth.isDead()) {
+          // Play player explosion and game over sounds
+          if (soundManager) {
+            soundManager.playPlayerExplosion();
+            // Delay game over sound slightly for effect
+            setTimeout(() => soundManager.playGameOver(), 300);
+          }
+
           // Trigger remove observer
           if (registry) {
             triggerDespawnObserver(registry, playerEntity, Player);
@@ -240,6 +268,11 @@ export function collisionWithEventsSystem(world: World): void {
         const healAmount = powerUpHealth.current; // Health component stores heal amount
         const oldHealth = playerHealth.current;
         playerHealth.heal(healAmount);
+
+        // Play power-up sound
+        if (soundManager) {
+          soundManager.playPlayerPowerUp();
+        }
 
         // Send events
         events.powerUpCollected.send({

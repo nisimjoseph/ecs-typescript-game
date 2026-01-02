@@ -27,6 +27,7 @@ import {
   ShootCooldown,
   BossSpawnTimer,
   Input,
+  SoundManager,
 } from './game/resources';
 import { GameEvents } from './game/events';
 
@@ -83,6 +84,18 @@ function main(): void {
   canvas.width = 800;
   canvas.height = 500;
 
+  // Create sound manager and initialize on first user interaction
+  const soundManager = new SoundManager();
+  
+  // Initialize audio on first user interaction (browser autoplay policy)
+  const initAudio = () => {
+    soundManager.initialize();
+    window.removeEventListener('click', initAudio);
+    window.removeEventListener('keydown', initAudio);
+  };
+  window.addEventListener('click', initAudio);
+  window.addEventListener('keydown', initAudio);
+
   // Create the App with ALL features
   const app = new App()
     // ============ RESOURCES ============
@@ -94,6 +107,7 @@ function main(): void {
     .insertResource(new SpawnTimer(2))
     .insertResource(new ShootCooldown(0.15))
     .insertResource(new BossSpawnTimer(15)) // Boss spawns every 15 seconds
+    .insertResource(soundManager) // Sound effects manager
     // Event system resource
     .insertResource(new GameEvents())
     // Observer registry resource
@@ -150,6 +164,7 @@ function main(): void {
   console.log('👁️ OBSERVERS: OnAdd, OnRemove, OnChange for entity lifecycle');
   console.log('🔍 QUERY FILTERS: With/Without filters demonstrated');
   console.log('⏱️ CHANGE DETECTION: Health changes tracked');
+  console.log('🔊 SOUND EFFECTS: Embedded MP3 audio for all game events');
   console.log('');
   console.log('Controls: WASD to move, SPACE to shoot');
 }

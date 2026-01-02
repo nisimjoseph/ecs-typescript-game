@@ -10,7 +10,11 @@
  * - Game configuration
  * - Score and game state
  * - Canvas context
+ * - Sound manager (see audio.ts)
  */
+
+// Re-export SoundManager from audio module
+export { SoundManager } from './audio';
 
 /**
  * Input resource - tracks keyboard input state.

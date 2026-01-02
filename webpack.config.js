@@ -18,6 +18,10 @@ module.exports = {
         use: 'ts-loader',
         exclude: /node_modules/,
       },
+      {
+        test: /\.mp3$/,
+        type: 'asset/inline', // Embeds audio as base64 data URLs
+      },
     ],
   },
   optimization: {
