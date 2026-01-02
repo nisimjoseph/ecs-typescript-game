@@ -199,7 +199,7 @@ export function playerShootSystem(world: World): void {
     .insert(new Bullet())
     .insert(new Damage(25))
     .insert(new Collider(15, 'bullet')) // Large collider for easy testing
-    .insert(new Lifetime(5));
+    .insert(new Lifetime(2));
 
   cooldown.shoot();
 
@@ -462,7 +462,7 @@ export function bulletEnemyCollisionSystem(world: World): void {
         commands.despawn(enemyEntity);
         if (gameState) {
           gameState.addScore(100);
-          gameState.enemiesKilled++;
+          gameState.recordEnemyKill();
         }
         if (logger) {
           logger.entity('Enemy destroyed! +100 points');
@@ -498,8 +498,10 @@ export function playerEnemyCollisionSystem(world: World): void {
     const hasCollision = checkCollision(playerPos, playerCol, enemyPos, enemyCol);
     if (!hasCollision) continue;
 
-    // Player takes damage
-    playerHealth.takeDamage(10);
+    // Player takes scaled damage (enemies get stronger every 10 kills)
+    const baseDamage = 10;
+    const scaledDamage = gameState ? gameState.getScaledDamage(baseDamage) : baseDamage;
+    playerHealth.takeDamage(scaledDamage);
 
     if (logger) {
       logger.component(`Player hit! Health: ${playerHealth.current}`);
@@ -730,7 +732,7 @@ export function shootBullet(world: World): void {
     .insert(new Bullet())
     .insert(new Damage(25))
     .insert(new Collider(15, 'bullet')) // Large collider for easy testing
-    .insert(new Lifetime(5));
+    .insert(new Lifetime(2));
 
   if (logger) {
     logger.system('Bullet fired!');
@@ -829,15 +831,79 @@ export function renderSystem(world: World): void {
     const rotationResult = world.getComponent(entity, Rotation);
     const hasRotation = rotationResult !== undefined;
 
-    if (hasRotation && sprite.shape === 'triangle') {
-      // Draw rotated triangle (player)
+    if (hasRotation && sprite.shape === 'spaceship') {
+      // Draw spaceship (player) with clear direction indication
       ctx.save();
       ctx.translate(pos.x, pos.y);
-      ctx.rotate(rotationResult.angle + Math.PI / 2); // +PI/2 because triangle points up by default
+      ctx.rotate(rotationResult.angle + Math.PI / 2); // +PI/2 because ship points up by default
+      
+      const w = size.width;
+      const h = size.height;
+      
+      // Main body (red)
+      ctx.fillStyle = '#ff3333';
       ctx.beginPath();
-      ctx.moveTo(0, -size.height / 2); // tip
-      ctx.lineTo(-size.width / 2, size.height / 2); // bottom left
-      ctx.lineTo(size.width / 2, size.height / 2); // bottom right
+      ctx.moveTo(0, -h * 0.6); // Nose tip
+      ctx.lineTo(w * 0.25, -h * 0.1); // Right shoulder
+      ctx.lineTo(w * 0.2, h * 0.4); // Right bottom
+      ctx.lineTo(-w * 0.2, h * 0.4); // Left bottom
+      ctx.lineTo(-w * 0.25, -h * 0.1); // Left shoulder
+      ctx.closePath();
+      ctx.fill();
+      
+      // Left wing
+      ctx.fillStyle = '#cc2222';
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.25, -h * 0.1);
+      ctx.lineTo(-w * 0.5, h * 0.3);
+      ctx.lineTo(-w * 0.4, h * 0.5);
+      ctx.lineTo(-w * 0.2, h * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Right wing
+      ctx.beginPath();
+      ctx.moveTo(w * 0.25, -h * 0.1);
+      ctx.lineTo(w * 0.5, h * 0.3);
+      ctx.lineTo(w * 0.4, h * 0.5);
+      ctx.lineTo(w * 0.2, h * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Cockpit window (light area showing direction)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, -h * 0.45); // Top of window
+      ctx.lineTo(w * 0.1, -h * 0.15);
+      ctx.lineTo(-w * 0.1, -h * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Engine glow (back of ship)
+      ctx.fillStyle = '#ffaa00';
+      ctx.beginPath();
+      ctx.arc(0, h * 0.35, w * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Wing tips (antenna-like)
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(-w * 0.45, h * 0.4, w * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(w * 0.45, h * 0.4, w * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
+    } else if (hasRotation && sprite.shape === 'triangle') {
+      // Draw rotated triangle (fallback)
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.rotate(rotationResult.angle + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -size.height / 2);
+      ctx.lineTo(-size.width / 2, size.height / 2);
+      ctx.lineTo(size.width / 2, size.height / 2);
       ctx.closePath();
       ctx.fill();
       ctx.restore();

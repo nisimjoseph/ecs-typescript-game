@@ -39,6 +39,7 @@ import {
 /**
  * Player bundle - all components needed for the player entity.
  * Player starts facing UP (angle = -PI/2).
+ * Uses spaceship sprite for clear direction indication.
  */
 export class PlayerBundle implements Bundle {
   constructor(
@@ -51,12 +52,12 @@ export class PlayerBundle implements Bundle {
     return [
       new Position(this.x, this.y),
       new Velocity(0, 0),
-      new Size(30, 30),
+      new Size(40, 45), // Larger for better visibility
       new Rotation(-Math.PI / 2), // Facing UP initially
-      new Sprite('#00ff88', 'triangle'),
+      new Sprite('#ff3333', 'spaceship'), // Red spaceship with clear direction
       new Player(),
       new Health(this.health, this.health),
-      new Collider(15, 'player'),
+      new Collider(18, 'player'),
     ];
   }
 }
@@ -147,7 +148,7 @@ export class BulletBundle implements Bundle {
       new Bullet(),
       new Damage(this.damage),
       new Collider(8, 'bullet'),
-      new Lifetime(3),
+      new Lifetime(2),
       new Trail('#ffdd00', 12),
     ];
   }

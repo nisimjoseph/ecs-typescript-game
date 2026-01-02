@@ -95,19 +95,41 @@ export class GameState {
   score: number = 0;
   enemiesKilled: number = 0;
   powerUpsCollected: number = 0;
+  bossesKilled: number = 0;
   isGameOver: boolean = false;
   isPaused: boolean = false;
+  /** Enemy damage multiplier - increases by 1% every 10 kills */
+  enemyDamageMultiplier: number = 1.0;
 
   addScore(points: number): void {
     this.score += points;
+  }
+
+  /**
+   * Record an enemy kill and update damage multiplier.
+   * Every 10 kills increases enemy damage by 1%.
+   */
+  recordEnemyKill(): void {
+    this.enemiesKilled++;
+    // Every 10 kills, increase enemy power by 1%
+    this.enemyDamageMultiplier = 1.0 + Math.floor(this.enemiesKilled / 10) * 0.01;
+  }
+
+  /**
+   * Get scaled enemy damage based on kills.
+   */
+  getScaledDamage(baseDamage: number): number {
+    return Math.round(baseDamage * this.enemyDamageMultiplier);
   }
 
   reset(): void {
     this.score = 0;
     this.enemiesKilled = 0;
     this.powerUpsCollected = 0;
+    this.bossesKilled = 0;
     this.isGameOver = false;
     this.isPaused = false;
+    this.enemyDamageMultiplier = 1.0;
   }
 }
 

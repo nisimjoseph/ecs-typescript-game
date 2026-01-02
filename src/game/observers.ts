@@ -214,7 +214,7 @@ export function setupObservers(
           logger.entity(`🎯 Enemy destroyed (ID: ${entity.id})`);
         }
         if (gameState) {
-          gameState.enemiesKilled++;
+          gameState.recordEnemyKill();
         }
       })
       .build()

@@ -135,7 +135,7 @@ export class Boss {}
 export class Sprite {
   constructor(
     public color: string = '#ffffff',
-    public shape: 'rect' | 'circle' | 'triangle' = 'rect'
+    public shape: 'rect' | 'circle' | 'triangle' | 'spaceship' = 'rect'
   ) {}
 }
 

@@ -27,6 +27,7 @@ import {
   Position,
   Velocity,
   Size,
+  Rotation,
   Health,
   Player,
   Enemy,
@@ -354,7 +355,7 @@ function collisionWithEventsSystem(world: World): void {
           // Add score
           if (gameState) {
             gameState.addScore(100);
-            gameState.enemiesKilled++;
+            gameState.recordEnemyKill();
           }
 
           // Spawn explosion using bundle concept
@@ -392,7 +393,8 @@ function collisionWithEventsSystem(world: World): void {
       const collisionRadius = playerCol.radius + enemyCol.radius;
 
       if (distance < collisionRadius) {
-        const damageAmount = enemyDmg ? enemyDmg[1].amount : 20;
+        const baseDamage = enemyDmg ? enemyDmg[1].amount : 20;
+        const damageAmount = gameState ? gameState.getScaledDamage(baseDamage) : baseDamage;
         playerHealth.takeDamage(damageAmount);
 
         // Send player hit event
@@ -575,6 +577,7 @@ export function spawnEnemyWithBundle(world: World): void {
 /**
  * Spawn bullet using bundle.
  * DEMONSTRATES: Bundle spawning pattern
+ * Fires in the direction the player is facing.
  */
 export function shootBulletWithBundle(world: World): void {
   const config = world.getResource(GameConfig);
@@ -584,25 +587,39 @@ export function shootBulletWithBundle(world: World): void {
 
   if (!config || gameState?.isGameOver) return;
 
-  // Get player position
-  const playerQuery = world.query(Position, Player);
+  // Get player position AND rotation
+  const playerQuery = world.query(Position, Rotation, Player);
   const playerResult = playerQuery.single();
   if (!playerResult) return;
 
-  const [, playerPos] = playerResult;
+  const [, playerPos, playerRot] = playerResult;
 
-  // Use bundle for bullet
-  const bundle = new BulletBundle(
-    playerPos.x,
-    playerPos.y - 20,
-    -config.bulletSpeed,
-    25
-  );
+  // Calculate direction from rotation angle
+  const dirX = Math.cos(playerRot.angle);
+  const dirY = Math.sin(playerRot.angle);
 
+  // Spawn bullet slightly in front of player (in facing direction)
+  const spawnOffset = 25;
+  const bulletX = playerPos.x + dirX * spawnOffset;
+  const bulletY = playerPos.y + dirY * spawnOffset;
+
+  // Bullet velocity in facing direction
+  const bulletVelX = dirX * config.bulletSpeed;
+  const bulletVelY = dirY * config.bulletSpeed;
+
+  // Spawn bullet manually (can't use BulletBundle directly since it only supports Y velocity)
   const builder = world.spawn();
-  for (const component of bundle.components()) {
-    builder.insert(component);
-  }
+  builder
+    .insert(new Position(bulletX, bulletY))
+    .insert(new Velocity(bulletVelX, bulletVelY))
+    .insert(new Size(16, 16))
+    .insert(new Sprite('#ffff00', 'circle'))
+    .insert(new Bullet())
+    .insert(new Damage(25))
+    .insert(new Collider(15, 'bullet'))
+    .insert(new Lifetime(2))
+    .insert(new Trail('#ffff00', 12));
+
   const bulletEntity = builder.id();
 
   // Trigger observer
