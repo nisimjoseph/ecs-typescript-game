@@ -43,6 +43,7 @@ import {
   Damage,
   Bouncy,
   Lifetime,
+  Shield,
 } from './game/components';
 import {
   GameConfig,
@@ -85,6 +86,7 @@ import {
   inputClearSystemDescriptor,
   playerInputSystemDescriptor,
   playerShootSystemDescriptor,
+  shieldSystemDescriptor,
   wanderSystemDescriptor,
   followTargetSystemDescriptor,
   movementSystemDescriptor,
@@ -378,6 +380,12 @@ function collisionWithEventsSystem(world: World): void {
   const playerQuery = world.query(Position, Collider, Health, Player);
   const playerResult = playerQuery.single();
 
+  // Check if player has active shield
+  const shieldQuery = world.query(Shield, Player);
+  const shieldResult = shieldQuery.single();
+  const playerShield = shieldResult ? shieldResult[1] : null;
+  const shieldIsActive = playerShield?.isActive === true;
+
   if (playerResult) {
     const [playerEntity, playerPos, playerCol, playerHealth] = playerResult;
 
@@ -394,6 +402,11 @@ function collisionWithEventsSystem(world: World): void {
       const collisionRadius = playerCol.radius + enemyCol.radius;
 
       if (distance < collisionRadius) {
+        // If shield is active, block the damage
+        if (shieldIsActive) {
+          continue; // Shield blocks, skip damage
+        }
+
         const baseDamage = enemyDmg ? enemyDmg[1].amount : 20;
         const damageAmount = gameState ? gameState.getScaledDamage(baseDamage) : baseDamage;
         playerHealth.takeDamage(damageAmount);
@@ -421,12 +434,11 @@ function collisionWithEventsSystem(world: World): void {
             .insert(new Position(powerUpX, powerUpY))
             .insert(new Velocity(0, 0))
             .insert(new Size(20, 20))
-            .insert(new Sprite('#00ffff', 'circle'))
+            .insert(new Sprite('#00d9ff', 'circle'))
             .insert(new PowerUp())
-            .insert(new Health(30, 30))
-            .insert(new Collider(15, 'powerup'))
-            .insert(new Lifetime(8))
-            .insert(new Bouncy(0.5));
+            .insert(new Health(25, 25))
+            .insert(new Collider(12, 'powerup'))
+            .insert(new Lifetime(15));
         }
 
         // Check if player died
@@ -798,6 +810,7 @@ function main(): void {
     // Stage.PreUpdate: Input processing
     .addSystem(playerInputSystemDescriptor)
     .addSystem(playerShootSystemDescriptor)
+    .addSystem(shieldSystemDescriptor)
 
     // Stage.Update: Game logic
     .addSystem(wanderSystemDescriptor)

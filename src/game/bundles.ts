@@ -34,6 +34,7 @@ import {
   Wander,
   FollowTarget,
   Bouncy,
+  Shield,
 } from './components';
 
 /**
@@ -58,6 +59,7 @@ export class PlayerBundle implements Bundle {
       new Player(),
       new Health(this.health, this.health),
       new Collider(18, 'player'),
+      new Shield(2.0), // Full shield at start (2 seconds)
     ];
   }
 }
@@ -156,12 +158,13 @@ export class BulletBundle implements Bundle {
 
 /**
  * Power-up bundle - collectible item.
+ * Relocates after 15 seconds if not collected.
  */
 export class PowerUpBundle implements Bundle {
   constructor(
     public x: number = 0,
     public y: number = 0,
-    public healAmount: number = 30
+    public healAmount: number = 25
   ) {}
 
   components(): object[] {
@@ -169,12 +172,11 @@ export class PowerUpBundle implements Bundle {
       new Position(this.x, this.y),
       new Velocity(0, 0),
       new Size(20, 20),
-      new Sprite('#00ffff', 'circle'),
+      new Sprite('#00d9ff', 'circle'),
       new PowerUp(),
       new Health(this.healAmount, this.healAmount), // Store heal amount in health
-      new Collider(15, 'powerup'),
-      new Lifetime(10),
-      new Bouncy(0.5),
+      new Collider(12, 'powerup'),
+      new Lifetime(15), // 15 seconds before relocating
     ];
   }
 }

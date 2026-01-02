@@ -35,6 +35,7 @@ import {
   Bouncy,
   FollowTarget,
   Explosion,
+  Shield,
 } from './components';
 import {
   Input,
@@ -215,6 +216,61 @@ export function playerShootSystem(world: World): void {
   }
 }
 
+// ============ Shield System ============
+
+/**
+ * Handle player shield activation and charging.
+ * - Press C: Activate shield (drains power)
+ * - Release C: Deactivate shield (starts recharging)
+ * - Shield lasts up to 2 seconds, recharges at 0.1 sec per second
+ */
+export function shieldSystem(world: World): void {
+  const input = world.getResource(Input);
+  const time = world.getResource(Time);
+  const logger = world.getResource(Logger);
+  const gameState = world.getResource(GameState);
+  
+  if (!input || !time) return;
+  if (gameState?.isGameOver) return;
+
+  // Query player with shield
+  const playerQuery = world.query(Position, Shield, Player);
+  const playerResult = playerQuery.single();
+  if (!playerResult) return;
+
+  const [, , shield] = playerResult;
+
+  // Check C key for shield activation
+  const wantsShield = input.isPressed('c');
+  const shieldWasActive = shield.isActive;
+
+  if (wantsShield) {
+    // Try to activate or keep active
+    if (!shield.isActive) {
+      const activated = shield.activate();
+      if (activated && logger) {
+        logger.system('🛡️ Shield activated!');
+      }
+    }
+    // Drain shield while active
+    if (shield.isActive) {
+      const stillActive = shield.drain(time.delta);
+      if (!stillActive && logger) {
+        logger.system('🛡️ Shield depleted!');
+      }
+    }
+  } else {
+    // Deactivate and recharge
+    if (shield.isActive) {
+      shield.deactivate();
+      if (logger) {
+        logger.system('🛡️ Shield deactivated, recharging...');
+      }
+    }
+    shield.recharge(time.delta);
+  }
+}
+
 // ============ Movement Systems ============
 
 /**
@@ -349,9 +405,12 @@ export function followTargetSystem(world: World): void {
 
 /**
  * Despawn entities whose lifetime has expired.
+ * Power-ups are relocated instead of despawned.
  */
 export function lifetimeSystem(world: World): void {
   const time = world.getResource(Time);
+  const config = world.getResource(GameConfig);
+  const logger = world.getResource(Logger);
   if (!time) return;
 
   const query = world.query(Lifetime);
@@ -361,7 +420,24 @@ export function lifetimeSystem(world: World): void {
     lifetime.remaining -= time.delta;
     const hasExpired = lifetime.remaining <= 0;
     if (hasExpired) {
-      commands.despawn(entity);
+      // Check if this is a power-up - relocate instead of despawn
+      const isPowerUp = world.getComponent(entity, PowerUp) !== undefined;
+      
+      if (isPowerUp && config) {
+        // Relocate power-up to new random position
+        const position = world.getComponent(entity, Position);
+        if (position) {
+          position.x = Math.random() * (config.canvasWidth - 60) + 30;
+          position.y = Math.random() * (config.canvasHeight - 60) + 30;
+          lifetime.remaining = 15; // Reset timer for another 15 seconds
+          
+          if (logger) {
+            logger.entity('⭐ Power-up relocated to new position');
+          }
+        }
+      } else {
+        commands.despawn(entity);
+      }
     }
   }
 }
@@ -501,9 +577,22 @@ export function playerEnemyCollisionSystem(world: World): void {
 
   const [playerEntity, playerPos, playerCol, playerHealth] = playerResult;
 
+  // Check if player has active shield
+  const shieldResult = world.query(Shield, Player).single();
+  const playerShield = shieldResult ? shieldResult[1] : null;
+  const shieldIsActive = playerShield?.isActive === true;
+
   for (const [, enemyPos, enemyCol] of enemyQuery.iter()) {
     const hasCollision = checkCollision(playerPos, playerCol, enemyPos, enemyCol);
     if (!hasCollision) continue;
+
+    // If shield is active, block the damage
+    if (shieldIsActive) {
+      if (logger) {
+        logger.component('🛡️ Shield blocked enemy attack!');
+      }
+      continue; // Shield blocks, no damage taken
+    }
 
     // Player takes scaled damage (enemies get stronger every 10 kills)
     const baseDamage = 10;
@@ -524,12 +613,11 @@ export function playerEnemyCollisionSystem(world: World): void {
         .insert(new Position(powerUpX, powerUpY))
         .insert(new Velocity(0, 0))
         .insert(new Size(20, 20))
-        .insert(new Sprite('#00ffff', 'circle'))
+        .insert(new Sprite('#00d9ff', 'circle'))
         .insert(new PowerUp())
-        .insert(new Health(30, 30))
-        .insert(new Collider(15, 'powerup'))
-        .insert(new Lifetime(8)) // Power-up lasts 8 seconds
-        .insert(new Bouncy(0.5));
+        .insert(new Health(25, 25)) // Heals 25 HP
+        .insert(new Collider(12, 'powerup'))
+        .insert(new Lifetime(15)); // 15 seconds before relocating
       
       if (logger) {
         logger.entity(`⭐ Power-up spawned to help player!`);
@@ -716,11 +804,12 @@ export function powerUpAutoSpawnSystem(world: World): void {
     .spawn()
     .insert(new Position(x, y))
     .insert(new Velocity(0, 0))
-    .insert(new Size(16, 16))
+    .insert(new Size(20, 20))
     .insert(new Sprite('#00d9ff', 'circle'))
     .insert(new PowerUp())
-    .insert(new Collider(8, 'powerup'))
-    .insert(new Lifetime(8)); // 8 seconds to collect
+    .insert(new Health(25, 25)) // Health component stores heal amount
+    .insert(new Collider(12, 'powerup'))
+    .insert(new Lifetime(15)); // 15 seconds before relocating
 
   if (logger) {
     logger.entity('Power-up spawned (player needs healing)');
@@ -743,11 +832,12 @@ export function spawnPowerUp(world: World): void {
     .spawn()
     .insert(new Position(x, y))
     .insert(new Velocity(0, 0))
-    .insert(new Size(16, 16))
+    .insert(new Size(20, 20))
     .insert(new Sprite('#00d9ff', 'circle'))
     .insert(new PowerUp())
-    .insert(new Collider(8, 'powerup'))
-    .insert(new Lifetime(10));
+    .insert(new Health(25, 25)) // Health component stores heal amount
+    .insert(new Collider(12, 'powerup'))
+    .insert(new Lifetime(15)); // 15 seconds before relocating
 
   if (logger) {
     logger.entity('Power-up spawned');
@@ -947,6 +1037,33 @@ export function renderSystem(world: World): void {
       ctx.fill();
       
       ctx.restore();
+      
+      // Draw shield circle if player has active shield
+      const shieldQuery = world.query(Shield, Player);
+      const shieldResult = shieldQuery.single();
+      if (shieldResult) {
+        const playerShield = shieldResult[1];
+        if (playerShield.isActive) {
+          // Draw shield circle around player
+          const shieldRadius = Math.max(w, h) * 0.8;
+          ctx.save();
+          ctx.strokeStyle = '#00d9ff';
+          ctx.lineWidth = 3;
+          ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 100) * 0.2; // Pulsing effect
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, shieldRadius, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Inner glow
+          ctx.strokeStyle = '#00ffff';
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, shieldRadius - 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
     } else if (hasRotation && sprite.shape === 'triangle') {
       // Draw rotated triangle (fallback)
       ctx.save();
@@ -1005,6 +1122,33 @@ export function renderSystem(world: World): void {
     const healthColor = healthPercent > 0.5 ? '#00ff88' : healthPercent > 0.25 ? '#ffdd00' : '#ff4444';
     ctx.fillStyle = healthColor;
     ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+  }
+
+  // Draw shield bar for player (blue bar below health bar)
+  const playerShieldQuery = world.query(Position, Size, Shield, Player);
+  const playerShieldResult = playerShieldQuery.single();
+  if (playerShieldResult) {
+    const [, pos, size, shield] = playerShieldResult;
+    const shieldPercent = shield.getPercentage();
+    const barWidth = size.width;
+    const barHeight = 4;
+    const barY = pos.y - size.height / 2 - 14; // Above the health bar
+
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth, barHeight);
+
+    // Shield fill (blue, brighter when active)
+    const shieldColor = shield.isActive ? '#00ffff' : '#00a0d9';
+    ctx.fillStyle = shieldColor;
+    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * shieldPercent, barHeight);
+
+    // Border when active
+    if (shield.isActive) {
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+    }
   }
 
   // Draw explosions
@@ -1105,6 +1249,30 @@ export function uiUpdateSystem(world: World): void {
   if (scoreEl && gameState) {
     scoreEl.textContent = gameState.score.toString();
   }
+
+  // Update shield bar
+  const shieldQuery = world.query(Shield, Player);
+  const shieldResult = shieldQuery.single();
+  if (shieldResult) {
+    const shield = shieldResult[1];
+    const shieldPercent = Math.round(shield.getPercentage() * 100);
+    
+    const shieldBarEl = document.getElementById('shield-bar');
+    const shieldPercentEl = document.getElementById('shield-percent');
+    
+    if (shieldBarEl) {
+      shieldBarEl.style.width = `${shieldPercent}%`;
+      // Change color based on active state
+      if (shield.isActive) {
+        shieldBarEl.style.background = 'linear-gradient(90deg, #00ffff, #ffffff)';
+      } else {
+        shieldBarEl.style.background = 'linear-gradient(90deg, #00d9ff, #00ffff)';
+      }
+    }
+    if (shieldPercentEl) {
+      shieldPercentEl.textContent = `${shieldPercent}%`;
+    }
+  }
 }
 
 // ============ System Descriptors with Stages ============
@@ -1119,6 +1287,11 @@ export const playerInputSystemDescriptor = system(playerInputSystem)
 
 export const playerShootSystemDescriptor = system(playerShootSystem)
   .label('player_shoot')
+  .inStage(Stage.PreUpdate)
+  .after('player_input');
+
+export const shieldSystemDescriptor = system(shieldSystem)
+  .label('shield')
   .inStage(Stage.PreUpdate)
   .after('player_input');
 
