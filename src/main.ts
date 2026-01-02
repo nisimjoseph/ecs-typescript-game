@@ -98,6 +98,7 @@ import {
   bulletEnemyCollisionSystemDescriptor,
   playerEnemyCollisionSystemDescriptor,
   playerPowerUpCollisionSystemDescriptor,
+  difficultyProgressionSystemDescriptor,
   enemySpawnSystemDescriptor,
   powerUpAutoSpawnSystemDescriptor,
   renderSystemDescriptor,
@@ -815,6 +816,7 @@ function main(): void {
     .addSystem(turboSystemDescriptor)
 
     // Stage.Update: Game logic
+    .addSystem(difficultyProgressionSystemDescriptor) // Increase difficulty every 30s
     .addSystem(wanderSystemDescriptor)
     .addSystem(followTargetSystemDescriptor)
     .addSystem(movementSystemDescriptor)

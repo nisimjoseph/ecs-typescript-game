@@ -747,6 +747,28 @@ export function playerPowerUpCollisionSystem(world: World): void {
   }
 }
 
+// ============ Difficulty System ============
+
+/**
+ * Increase difficulty over time.
+ * Every 30 seconds, increases max enemy count by 1.
+ */
+export function difficultyProgressionSystem(world: World): void {
+  const time = world.getResource(Time);
+  const gameState = world.getResource(GameState);
+  const logger = world.getResource(Logger);
+  
+  if (!time || !gameState) return;
+  if (gameState.isGameOver) return;
+
+  const difficultyIncreased = gameState.updateDifficulty(time.delta);
+  
+  if (difficultyIncreased && logger) {
+    const newMaxEnemies = gameState.getMaxEnemies();
+    logger.system(`⚠️ Difficulty increased! Max enemies: ${newMaxEnemies}`);
+  }
+}
+
 // ============ Spawning Systems ============
 
 /**
@@ -764,10 +786,11 @@ export function enemySpawnSystem(world: World): void {
   // Don't spawn if game over
   if (gameState.isGameOver) return;
 
-  // Check enemy count
+  // Check enemy count against dynamic max (increases every 30 seconds)
   const enemyQuery = world.query(Enemy);
   const enemyCount = enemyQuery.count();
-  const atMaxEnemies = enemyCount >= config.maxEnemies;
+  const currentMaxEnemies = gameState.getMaxEnemies();
+  const atMaxEnemies = enemyCount >= currentMaxEnemies;
   if (atMaxEnemies) return;
 
   // Check spawn timer
@@ -1457,6 +1480,10 @@ export const playerEnemyCollisionSystemDescriptor = system(playerEnemyCollisionS
 export const playerPowerUpCollisionSystemDescriptor = system(playerPowerUpCollisionSystem)
   .label('player_powerup_collision')
   .inStage(Stage.PostUpdate);
+
+export const difficultyProgressionSystemDescriptor = system(difficultyProgressionSystem)
+  .label('difficulty_progression')
+  .inStage(Stage.Update);
 
 export const enemySpawnSystemDescriptor = system(enemySpawnSystem)
   .label('enemy_spawn')

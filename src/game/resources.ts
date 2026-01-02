@@ -100,6 +100,12 @@ export class GameState {
   isPaused: boolean = false;
   /** Enemy damage multiplier - increases by 1% every 10 kills */
   enemyDamageMultiplier: number = 1.0;
+  /** Difficulty level - increases by 1 every 30 seconds */
+  difficultyLevel: number = 0;
+  /** Time tracker for difficulty progression */
+  difficultyTimer: number = 0;
+  /** Base max enemies at start */
+  baseMaxEnemies: number = 10;
 
   addScore(points: number): void {
     this.score += points;
@@ -122,6 +128,30 @@ export class GameState {
     return Math.round(baseDamage * this.enemyDamageMultiplier);
   }
 
+  /**
+   * Update difficulty timer. Returns true if difficulty increased.
+   */
+  updateDifficulty(deltaTime: number): boolean {
+    if (this.isGameOver) return false;
+    
+    this.difficultyTimer += deltaTime;
+    
+    // Every 30 seconds, increase difficulty
+    if (this.difficultyTimer >= 30) {
+      this.difficultyTimer -= 30;
+      this.difficultyLevel++;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get current max enemies based on difficulty.
+   */
+  getMaxEnemies(): number {
+    return this.baseMaxEnemies + this.difficultyLevel;
+  }
+
   reset(): void {
     this.score = 0;
     this.enemiesKilled = 0;
@@ -130,6 +160,8 @@ export class GameState {
     this.isGameOver = false;
     this.isPaused = false;
     this.enemyDamageMultiplier = 1.0;
+    this.difficultyLevel = 0;
+    this.difficultyTimer = 0;
   }
 }
 
