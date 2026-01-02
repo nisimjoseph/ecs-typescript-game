@@ -35,10 +35,10 @@
  * - ChangeDetection: Queries can filter by changes
  */
 
-import { Entity, ComponentClass, EntityId } from '../core/types';
-import { EntityAllocator } from '../entity/mod';
-import { ComponentRegistry } from '../component/mod';
-import { ChangeFilter, matchesChangeFilter } from '../change_detection/mod';
+import { Entity, ComponentClass, EntityId } from './core/types';
+import { EntityAllocator } from './entity';
+import { ComponentRegistry } from './component';
+import { ChangeFilter, matchesChangeFilter } from './change_detection';
 
 /**
  * Query filter type.

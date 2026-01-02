@@ -18,7 +18,7 @@
  * - Commands: Deferred entity spawn/despawn
  */
 
-import { EntityId, Generation, Entity } from '../core/types';
+import { EntityId, Generation, Entity } from './core/types';
 
 /**
  * Entity metadata - tracks location in ECS storage.

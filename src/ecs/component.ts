@@ -21,9 +21,9 @@
  * - Archetype: Component layout determines archetype
  */
 
-import { ComponentClass, EntityId } from '../core/types';
-import { ComponentSparseSet } from '../storage/sparse_set';
-import { Tick, ComponentTicks, ChangeDetectionStorage } from '../change_detection/mod';
+import { ComponentClass, EntityId } from './core/types';
+import { ComponentSparseSet } from './storage/sparse_set';
+import { Tick, ComponentTicks, ChangeDetectionStorage } from './change_detection';
 
 /**
  * Component storage strategy.

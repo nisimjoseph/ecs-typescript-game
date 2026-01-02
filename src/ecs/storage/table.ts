@@ -22,8 +22,8 @@
  * - Query: Queries iterate over table columns
  */
 
-import { EntityId, ComponentClass } from '../../core/types';
-import { Entity } from '../../core/types';
+import { EntityId, ComponentClass } from '../core/types';
+import { Entity } from '../core/types';
 
 /**
  * A column in a table - stores one component type for all entities.

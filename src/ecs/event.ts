@@ -40,7 +40,7 @@
  * - Commands: Can send events via commands
  */
 
-import { ComponentClass } from '../core/types';
+import { ComponentClass } from './core/types';
 
 /**
  * Event ID for ordering.

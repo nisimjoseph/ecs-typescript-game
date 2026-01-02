@@ -39,7 +39,7 @@
  * - Observer: React to hierarchy changes
  */
 
-import { Entity, EntityId, ComponentClass } from '../core/types';
+import { Entity, EntityId, ComponentClass } from './core/types';
 
 /**
  * Parent component - references parent entity.

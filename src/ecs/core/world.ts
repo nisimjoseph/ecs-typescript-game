@@ -20,10 +20,10 @@
  */
 
 import { Entity, ComponentClass } from './types';
-import { EntityAllocator } from '../entity/mod';
-import { ComponentRegistry } from '../component/mod';
+import { EntityAllocator } from '../entity';
+import { ComponentRegistry } from '../component';
 import { ResourceRegistry } from './resource';
-import { Query } from '../query/mod';
+import { Query } from '../query';
 import { Commands, Command, CommandType } from './commands';
 
 /**

@@ -35,7 +35,7 @@
  * - Archetype: Bundles determine archetype
  */
 
-import { ComponentClass } from '../core/types';
+import { ComponentClass } from './core/types';
 
 /**
  * Bundle interface - groups components together.

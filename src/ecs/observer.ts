@@ -36,7 +36,7 @@
  * - Event: Uses event system internally
  */
 
-import { Entity, ComponentClass } from '../core/types';
+import { Entity, ComponentClass } from './core/types';
 
 /**
  * Observer trigger type.

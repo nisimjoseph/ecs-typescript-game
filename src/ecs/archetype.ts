@@ -21,8 +21,8 @@
  * - World: World maintains archetype registry
  */
 
-import { ComponentClass, Entity, EntityId } from '../core/types';
-import { Table } from '../storage/table/mod';
+import { ComponentClass, Entity, EntityId } from './core/types';
+import { Table } from './storage/table';
 
 /**
  * Unique identifier for an archetype.
@@ -382,7 +382,7 @@ export class Archetypes {
 
     // Create new archetype
     const currentClasses = Array.from(current.table.getColumns()).map(
-      (col) => col.componentClass
+      (col: { componentClass: ComponentClass }) => col.componentClass
     );
     const newClasses = [...currentClasses, componentClass];
     return this.getOrCreate(newClasses);
@@ -415,7 +415,7 @@ export class Archetypes {
 
     // Create new archetype
     const currentClasses = Array.from(current.table.getColumns())
-      .map((col) => col.componentClass)
+      .map((col: { componentClass: ComponentClass }) => col.componentClass)
       .filter((cls) => componentId(cls) !== compId);
     return this.getOrCreate(currentClasses);
   }

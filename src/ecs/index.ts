@@ -40,7 +40,7 @@ export {
   EntityMeta,
   EntityMap,
   EntitySet,
-} from './entity/mod';
+} from './entity';
 
 // Component
 export {
@@ -51,7 +51,7 @@ export {
   StorageType,
   Component,
   component,
-} from './component/mod';
+} from './component';
 
 // Query
 export {
@@ -60,11 +60,11 @@ export {
   QueryBuilder,
   QueryFilter,
   QueryFilterType,
-} from './query/mod';
+} from './query';
 
 // Storage
 export { SparseSet, ComponentSparseSet } from './storage/sparse_set';
-export { Table, TableColumn, Tables } from './storage/table/mod';
+export { Table, TableColumn, Tables } from './storage/table';
 
 // Archetype
 export {
@@ -75,7 +75,7 @@ export {
   ComponentId,
   componentId,
   EMPTY_ARCHETYPE_ID,
-} from './archetype/mod';
+} from './archetype';
 
 // Change Detection
 export {
@@ -88,7 +88,7 @@ export {
   ChangeDetectionStorage,
   DetectChanges,
   MutWithDetection,
-} from './change_detection/mod';
+} from './change_detection';
 
 // Bundle
 export {
@@ -103,7 +103,7 @@ export {
   bundle,
   extractBundleInfo,
   isBundle,
-} from './bundle/mod';
+} from './bundle';
 
 // Event
 export {
@@ -115,7 +115,7 @@ export {
   EventInstance,
   updateEventsSystem,
   addEvent,
-} from './event/mod';
+} from './event';
 
 // Observer
 export {
@@ -130,7 +130,7 @@ export {
   onAdd,
   onChange,
   onRemove,
-} from './observer/mod';
+} from './observer';
 
 // Hierarchy
 export {
@@ -142,7 +142,7 @@ export {
   HierarchyMaintainer,
   Transform,
   GlobalTransform,
-} from './hierarchy/mod';
+} from './hierarchy';
 
 // Resource (from core)
 export { ResourceRegistry } from './core/resource';
