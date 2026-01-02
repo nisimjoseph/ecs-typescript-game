@@ -96,6 +96,7 @@ import {
   playerEnemyCollisionSystemDescriptor,
   playerPowerUpCollisionSystemDescriptor,
   enemySpawnSystemDescriptor,
+  powerUpAutoSpawnSystemDescriptor,
   renderSystemDescriptor,
   uiUpdateSystemDescriptor,
   spawnEnemy,
@@ -587,12 +588,12 @@ export function shootBulletWithBundle(world: World): void {
 
   if (!config || gameState?.isGameOver) return;
 
-  // Get player position AND rotation
-  const playerQuery = world.query(Position, Rotation, Player);
+  // Get player position, velocity AND rotation
+  const playerQuery = world.query(Position, Velocity, Rotation, Player);
   const playerResult = playerQuery.single();
   if (!playerResult) return;
 
-  const [, playerPos, playerRot] = playerResult;
+  const [, playerPos, playerVel, playerRot] = playerResult;
 
   // Calculate direction from rotation angle
   const dirX = Math.cos(playerRot.angle);
@@ -603,9 +604,16 @@ export function shootBulletWithBundle(world: World): void {
   const bulletX = playerPos.x + dirX * spawnOffset;
   const bulletY = playerPos.y + dirY * spawnOffset;
 
-  // Bullet velocity in facing direction
-  const bulletVelX = dirX * config.bulletSpeed;
-  const bulletVelY = dirY * config.bulletSpeed;
+  // Calculate player's speed in the firing direction (dot product)
+  const playerSpeedInFiringDir = playerVel.x * dirX + playerVel.y * dirY;
+  
+  // Only add player velocity if moving forward (positive dot product)
+  // If moving backward, bullet uses just the base bullet speed
+  const extraSpeed = Math.max(0, playerSpeedInFiringDir);
+  const totalBulletSpeed = config.bulletSpeed + extraSpeed;
+  
+  const bulletVelX = dirX * totalBulletSpeed;
+  const bulletVelY = dirY * totalBulletSpeed;
 
   // Spawn bullet manually (can't use BulletBundle directly since it only supports Y velocity)
   const builder = world.spawn();
@@ -806,6 +814,7 @@ function main(): void {
     .addSystem(processEventsSystemDescriptor) // Process events
     .addSystem(detectHealthChangesSystemDescriptor)
     .addSystem(enemySpawnSystemDescriptor)
+    .addSystem(powerUpAutoSpawnSystemDescriptor) // Auto-spawn power-ups when player needs healing
     .addSystem(bossSpawnSystemDescriptor) // Boss spawns periodically
 
     // Stage.Last: Rendering and cleanup

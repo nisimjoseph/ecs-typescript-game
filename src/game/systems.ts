@@ -167,12 +167,12 @@ export function playerShootSystem(world: World): void {
 
   if (!shouldShoot) return;
 
-  // Get player position AND rotation
-  const playerQuery = world.query(Position, Rotation, Player);
+  // Get player position, velocity AND rotation
+  const playerQuery = world.query(Position, Velocity, Rotation, Player);
   const playerResult = playerQuery.single();
   if (!playerResult) return;
 
-  const [, playerPos, playerRot] = playerResult;
+  const [, playerPos, playerVel, playerRot] = playerResult;
 
   // Calculate direction from rotation angle
   const dirX = Math.cos(playerRot.angle);
@@ -183,9 +183,16 @@ export function playerShootSystem(world: World): void {
   const bulletX = playerPos.x + dirX * spawnOffset;
   const bulletY = playerPos.y + dirY * spawnOffset;
 
-  // Bullet velocity in facing direction
-  const bulletVelX = dirX * config.bulletSpeed;
-  const bulletVelY = dirY * config.bulletSpeed;
+  // Calculate player's speed in the firing direction (dot product)
+  const playerSpeedInFiringDir = playerVel.x * dirX + playerVel.y * dirY;
+  
+  // Only add player velocity if moving forward (positive dot product)
+  // If moving backward, bullet uses just the base bullet speed
+  const extraSpeed = Math.max(0, playerSpeedInFiringDir);
+  const totalBulletSpeed = config.bulletSpeed + extraSpeed;
+  
+  const bulletVelX = dirX * totalBulletSpeed;
+  const bulletVelY = dirY * totalBulletSpeed;
 
   // Spawn bullet - YELLOW CIRCLE to distinguish from RED RECTANGLE enemies
   const commands = world.getCommands();
@@ -676,6 +683,51 @@ export function enemySpawnSystem(world: World): void {
 }
 
 /**
+ * Auto-spawn power-ups when player health is not full and no power-ups exist.
+ * Ensures player always has opportunity to heal.
+ */
+export function powerUpAutoSpawnSystem(world: World): void {
+  const config = world.getResource(GameConfig);
+  const gameState = world.getResource(GameState);
+  const logger = world.getResource(Logger);
+  if (!config || gameState?.isGameOver) return;
+
+  // Check if player exists and has less than full health
+  const playerQuery = world.query(Position, Health, Player);
+  const playerResult = playerQuery.single();
+  if (!playerResult) return;
+
+  const [, , playerHealth] = playerResult;
+  const playerNeedsHealing = playerHealth.current < playerHealth.max;
+  if (!playerNeedsHealing) return;
+
+  // Check if any power-ups currently exist
+  const powerUpQuery = world.query(Position, PowerUp);
+  const powerUpCount = powerUpQuery.count();
+  const hasPowerUps = powerUpCount > 0;
+  if (hasPowerUps) return;
+
+  // Spawn a power-up at random location
+  const x = Math.random() * (config.canvasWidth - 60) + 30;
+  const y = Math.random() * (config.canvasHeight - 60) + 30;
+
+  const commands = world.getCommands();
+  commands
+    .spawn()
+    .insert(new Position(x, y))
+    .insert(new Velocity(0, 0))
+    .insert(new Size(16, 16))
+    .insert(new Sprite('#00d9ff', 'circle'))
+    .insert(new PowerUp())
+    .insert(new Collider(8, 'powerup'))
+    .insert(new Lifetime(8)); // 8 seconds to collect
+
+  if (logger) {
+    logger.entity('Power-up spawned (player needs healing)');
+  }
+}
+
+/**
  * Spawn a power-up (called via button or timer).
  */
 export function spawnPowerUp(world: World): void {
@@ -1116,6 +1168,10 @@ export const playerPowerUpCollisionSystemDescriptor = system(playerPowerUpCollis
 
 export const enemySpawnSystemDescriptor = system(enemySpawnSystem)
   .label('enemy_spawn')
+  .inStage(Stage.PostUpdate);
+
+export const powerUpAutoSpawnSystemDescriptor = system(powerUpAutoSpawnSystem)
+  .label('powerup_auto_spawn')
   .inStage(Stage.PostUpdate);
 
 export const renderSystemDescriptor = system(renderSystem)
