@@ -2,6 +2,10 @@
 
 A **complete** Entity Component System (ECS) implementation in TypeScript, inspired by [Bevy Engine](https://bevyengine.org/). This project demonstrates the full ECS architecture with all advanced features.
 
+## 🕹️ [Play the Live Demo](https://nisimjoseph.github.io/ecs-typescript-game/demo/)
+
+> **Controls:** WASD to move, Arrow keys to rotate, SPACE to shoot, Y for shield, T for turbo, B for bomb
+
 ## ✅ Features Implemented
 
 ### Core ECS (100%)
@@ -616,13 +620,14 @@ ecs-typescript-game/
 ├── public/
 │   └── index.html                    # HTML template
 │
-├── docs/                             # Documentation
+├── docs/                             # Documentation & Demo
+│   ├── demo/                         # Live demo (GitHub Pages)
+│   │   ├── bundle.js                 # Compiled game
+│   │   └── index.html                # Game HTML
 │   ├── ARCHITECTURE.md               # Architecture details
 │   ├── ARCHITECTURE_VIEWER.html      # Interactive diagrams
 │   ├── BEVY_COMPARISON.md            # Comparison with Bevy
 │   └── ...
-│
-├── dist/                             # Build output
 ├── package.json
 ├── tsconfig.json
 ├── webpack.config.js
