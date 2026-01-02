@@ -35,6 +35,7 @@ import {
   FollowTarget,
   Bouncy,
   Shield,
+  Turbo,
 } from './components';
 
 /**
@@ -60,6 +61,7 @@ export class PlayerBundle implements Bundle {
       new Health(this.health, this.health),
       new Collider(18, 'player'),
       new Shield(2.0), // Full shield at start (2 seconds)
+      new Turbo(2.0),  // Full turbo at start (2 seconds, 150% speed)
     ];
   }
 }

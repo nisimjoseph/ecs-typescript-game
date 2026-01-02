@@ -87,6 +87,7 @@ import {
   playerInputSystemDescriptor,
   playerShootSystemDescriptor,
   shieldSystemDescriptor,
+  turboSystemDescriptor,
   wanderSystemDescriptor,
   followTargetSystemDescriptor,
   movementSystemDescriptor,
@@ -811,6 +812,7 @@ function main(): void {
     .addSystem(playerInputSystemDescriptor)
     .addSystem(playerShootSystemDescriptor)
     .addSystem(shieldSystemDescriptor)
+    .addSystem(turboSystemDescriptor)
 
     // Stage.Update: Game logic
     .addSystem(wanderSystemDescriptor)

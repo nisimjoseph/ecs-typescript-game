@@ -36,6 +36,7 @@ import {
   FollowTarget,
   Explosion,
   Shield,
+  Turbo,
 } from './components';
 import {
   Input,
@@ -130,6 +131,16 @@ export function playerInputSystem(world: World): void {
     const factor = 1 / Math.sqrt(2);
     vel.x *= factor;
     vel.y *= factor;
+  }
+
+  // Apply turbo speed boost if active
+  const turboQuery = world.query(Turbo, Player).single();
+  if (turboQuery) {
+    const turbo = turboQuery[1];
+    if (turbo.isActive) {
+      vel.x *= turbo.speedMultiplier;
+      vel.y *= turbo.speedMultiplier;
+    }
   }
 
   // Keep player in bounds
@@ -241,7 +252,7 @@ export function shieldSystem(world: World): void {
   const [, , shield] = playerResult;
 
   // Check C key for shield activation
-  const wantsShield = input.isPressed('c');
+  const wantsShield = input.isPressed('y');
   const shieldWasActive = shield.isActive;
 
   if (wantsShield) {
@@ -268,6 +279,58 @@ export function shieldSystem(world: World): void {
       }
     }
     shield.recharge(time.delta);
+  }
+}
+
+/**
+ * Turbo system - handles turbo activation and drain.
+ * - Press 't' to activate turbo (150% speed boost)
+ * - Release 't' to deactivate and recharge
+ * - Turbo lasts up to 2 seconds, recharges at 0.1 sec per second
+ */
+export function turboSystem(world: World): void {
+  const input = world.getResource(Input);
+  const time = world.getResource(Time);
+  const logger = world.getResource(Logger);
+  const gameState = world.getResource(GameState);
+  
+  if (!input || !time) return;
+  if (gameState?.isGameOver) return;
+
+  // Query player with turbo
+  const playerQuery = world.query(Position, Turbo, Player);
+  const playerResult = playerQuery.single();
+  if (!playerResult) return;
+
+  const [, , turbo] = playerResult;
+
+  // Check T key for turbo activation
+  const wantsTurbo = input.isPressed('t');
+
+  if (wantsTurbo) {
+    // Try to activate or keep active
+    if (!turbo.isActive) {
+      const activated = turbo.activate();
+      if (activated && logger) {
+        logger.system('🚀 Turbo activated!');
+      }
+    }
+    // Drain turbo while active
+    if (turbo.isActive) {
+      const stillActive = turbo.drain(time.delta);
+      if (!stillActive && logger) {
+        logger.system('🚀 Turbo depleted!');
+      }
+    }
+  } else {
+    // Deactivate and recharge
+    if (turbo.isActive) {
+      turbo.deactivate();
+      if (logger) {
+        logger.system('🚀 Turbo deactivated, recharging...');
+      }
+    }
+    turbo.recharge(time.delta);
   }
 }
 
@@ -1151,6 +1214,33 @@ export function renderSystem(world: World): void {
     }
   }
 
+  // Draw turbo bar for player (red/orange bar above shield bar)
+  const playerTurboQuery = world.query(Position, Size, Turbo, Player);
+  const playerTurboResult = playerTurboQuery.single();
+  if (playerTurboResult) {
+    const [, pos, size, turbo] = playerTurboResult;
+    const turboPercent = turbo.getPercentage();
+    const barWidth = size.width;
+    const barHeight = 4;
+    const barY = pos.y - size.height / 2 - 20; // Above the shield bar
+
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth, barHeight);
+
+    // Turbo fill (orange, brighter when active)
+    const turboColor = turbo.isActive ? '#ff6600' : '#cc4400';
+    ctx.fillStyle = turboColor;
+    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * turboPercent, barHeight);
+
+    // Border when active
+    if (turbo.isActive) {
+      ctx.strokeStyle = '#ff6600';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+    }
+  }
+
   // Draw explosions
   const explosionQuery = world.query(Position, Explosion);
   for (const [, pos, explosion] of explosionQuery.iter()) {
@@ -1273,6 +1363,30 @@ export function uiUpdateSystem(world: World): void {
       shieldPercentEl.textContent = `${shieldPercent}%`;
     }
   }
+
+  // Update turbo bar
+  const turboQuery = world.query(Turbo, Player);
+  const turboResult = turboQuery.single();
+  if (turboResult) {
+    const turbo = turboResult[1];
+    const turboPercent = Math.round(turbo.getPercentage() * 100);
+    
+    const turboBarEl = document.getElementById('turbo-bar');
+    const turboPercentEl = document.getElementById('turbo-percent');
+    
+    if (turboBarEl) {
+      turboBarEl.style.width = `${turboPercent}%`;
+      // Change color based on active state
+      if (turbo.isActive) {
+        turboBarEl.style.background = 'linear-gradient(90deg, #ff6600, #ffaa00)';
+      } else {
+        turboBarEl.style.background = 'linear-gradient(90deg, #cc4400, #ff6600)';
+      }
+    }
+    if (turboPercentEl) {
+      turboPercentEl.textContent = `${turboPercent}%`;
+    }
+  }
 }
 
 // ============ System Descriptors with Stages ============
@@ -1292,6 +1406,11 @@ export const playerShootSystemDescriptor = system(playerShootSystem)
 
 export const shieldSystemDescriptor = system(shieldSystem)
   .label('shield')
+  .inStage(Stage.PreUpdate)
+  .after('player_input');
+
+export const turboSystemDescriptor = system(turboSystem)
+  .label('turbo')
   .inStage(Stage.PreUpdate)
   .after('player_input');
 
