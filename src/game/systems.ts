@@ -89,11 +89,14 @@ export function playerInputSystem(world: World): void {
   vel.x = 0;
   vel.y = 0;
 
-  // Left/Right arrows for rotation
-  if (input.isPressed('arrowleft')) {
+  // A/D or Left/Right arrows for rotation
+  const rotateLeft = input.isPressed('arrowleft') || input.isPressed('a');
+  const rotateRight = input.isPressed('arrowright') || input.isPressed('d');
+  
+  if (rotateLeft) {
     rotation.angle -= ROTATION_SPEED * time.delta;
   }
-  if (input.isPressed('arrowright')) {
+  if (rotateRight) {
     rotation.angle += ROTATION_SPEED * time.delta;
   }
 
@@ -101,36 +104,17 @@ export function playerInputSystem(world: World): void {
   const dirX = Math.cos(rotation.angle);
   const dirY = Math.sin(rotation.angle);
 
-  // Up/Down arrows for forward/backward movement (relative to facing)
-  if (input.isPressed('arrowup')) {
+  // W/S or Up/Down arrows for forward/backward movement (relative to facing)
+  const moveForward = input.isPressed('arrowup') || input.isPressed('w');
+  const moveBackward = input.isPressed('arrowdown') || input.isPressed('s');
+  
+  if (moveForward) {
     vel.x = dirX * config.playerSpeed;
     vel.y = dirY * config.playerSpeed;
   }
-  if (input.isPressed('arrowdown')) {
+  if (moveBackward) {
     vel.x = -dirX * config.playerSpeed;
     vel.y = -dirY * config.playerSpeed;
-  }
-
-  // WASD for movement (world-relative, overrides arrow movement)
-  if (input.isPressed('w')) {
-    vel.y = -config.playerSpeed;
-  }
-  if (input.isPressed('s')) {
-    vel.y = config.playerSpeed;
-  }
-  if (input.isPressed('a')) {
-    vel.x = -config.playerSpeed;
-  }
-  if (input.isPressed('d')) {
-    vel.x = config.playerSpeed;
-  }
-
-  // Normalize diagonal movement
-  const isMovingDiagonally = vel.x !== 0 && vel.y !== 0;
-  if (isMovingDiagonally) {
-    const factor = 1 / Math.sqrt(2);
-    vel.x *= factor;
-    vel.y *= factor;
   }
 
   // Apply turbo speed boost if active
