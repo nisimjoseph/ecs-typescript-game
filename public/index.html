@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECS TypeScript - Bevy Inspired</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e4e4e7;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+      color: #a1a1aa;
+      margin-bottom: 2rem;
+    }
+    
+    .game-area {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    
+    #game-canvas {
+      width: 100%;
+      height: 500px;
+      background: #0a0a0f;
+      border: 2px solid #00d9ff33;
+      border-radius: 12px;
+      box-shadow: 0 0 40px rgba(0, 217, 255, 0.1);
+    }
+    
+    .info-panel {
+      background: rgba(10, 10, 15, 0.8);
+      border: 1px solid #27272a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      height: 500px;
+      overflow-y: auto;
+    }
+    
+    .info-panel h2 {
+      color: #00ff88;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #27272a;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .stat-card {
+      background: rgba(0, 217, 255, 0.05);
+      border: 1px solid #00d9ff33;
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #00d9ff;
+    }
+    
+    .stat-label {
+      font-size: 0.75rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    #log {
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: #a1a1aa;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    
+    #log .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #27272a22;
+    }
+    
+    #log .system {
+      color: #00ff88;
+    }
+    
+    #log .entity {
+      color: #00d9ff;
+    }
+    
+    #log .component {
+      color: #ff6b6b;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #00d9ff 0%, #00ff88 100%);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      color: #0a0a0f;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0, 217, 255, 0.3);
+    }
+    
+    button.secondary {
+      background: transparent;
+      border: 1px solid #00d9ff;
+      color: #00d9ff;
+    }
+    
+    .legend {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.5rem 0;
+      font-size: 0.85rem;
+    }
+    
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+    
+    .player-color { background: #00ff88; }
+    .enemy-color { background: #ff6b6b; }
+    .bullet-color { background: #ffdd00; }
+    .powerup-color { background: #00d9ff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ ECS TypeScript Engine</h1>
+    <p class="subtitle">Entity Component System inspired by Bevy Engine</p>
+    
+    <div class="game-area">
+      <canvas id="game-canvas"></canvas>
+      
+      <div class="info-panel">
+        <h2>📊 ECS Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="entity-count">0</div>
+            <div class="stat-label">Entities</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="fps">0</div>
+            <div class="stat-label">FPS</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="system-count">0</div>
+            <div class="stat-label">Systems</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="score">0</div>
+            <div class="stat-label">Score</div>
+          </div>
+        </div>
+        
+        <div class="legend">
+          <strong>Legend:</strong>
+          <div class="legend-item"><span class="legend-color player-color"></span> Player (WASD/Arrows move, ←→ rotate)</div>
+          <div class="legend-item"><span class="legend-color enemy-color"></span> Enemies</div>
+          <div class="legend-item"><span class="legend-color" style="background: #ff00ff;"></span> Boss (300 HP, 50 DMG)</div>
+          <div class="legend-item"><span class="legend-color bullet-color"></span> Bullets (Space to shoot)</div>
+          <div class="legend-item"><span class="legend-color powerup-color"></span> Power-ups</div>
+        </div>
+        
+        <h2 style="margin-top: 1.5rem;">📝 System Log</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button id="btn-shoot">🔫 Shoot</button>
+      <button id="btn-spawn-enemy">Spawn Enemy</button>
+      <button id="btn-spawn-boss" style="background: linear-gradient(135deg, #ff00ff 0%, #ff6666 100%);">👹 Spawn Boss</button>
+      <button id="btn-spawn-powerup" class="secondary">Spawn Power-up</button>
+      <button id="btn-reset" class="secondary">Reset Game</button>
+    </div>
+  </div>
+</body>
+</html>
