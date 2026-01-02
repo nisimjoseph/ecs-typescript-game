@@ -17,6 +17,7 @@ import {
 } from './input';
 import { shieldSystem } from './shield';
 import { turboSystem } from './turbo';
+import { bombSystem } from './bomb';
 import {
   movementSystem,
   trailSystem,
@@ -43,7 +44,7 @@ import { uiUpdateSystem } from './ui';
 
 export const inputClearSystemDescriptor = system(inputClearSystem)
   .label('input_clear')
-  .inStage(Stage.First);
+  .inStage(Stage.Last);
 
 export const playerInputSystemDescriptor = system(playerInputSystem)
   .label('player_input')
@@ -61,6 +62,11 @@ export const shieldSystemDescriptor = system(shieldSystem)
 
 export const turboSystemDescriptor = system(turboSystem)
   .label('turbo')
+  .inStage(Stage.PreUpdate)
+  .after('player_input');
+
+export const bombSystemDescriptor = system(bombSystem)
+  .label('bomb')
   .inStage(Stage.PreUpdate)
   .after('player_input');
 

@@ -37,6 +37,7 @@ import {
   playerShootSystemDescriptor,
   shieldSystemDescriptor,
   turboSystemDescriptor,
+  bombSystemDescriptor,
   wanderSystemDescriptor,
   followTargetSystemDescriptor,
   movementSystemDescriptor,
@@ -103,15 +104,13 @@ function main(): void {
     .addStartupSystem(spawnPlayerSystem)    // Then spawn player
 
     // ============ FRAME SYSTEMS ============
-    
-    // Stage.First: Input clearing
-    .addSystem(inputClearSystemDescriptor)
 
     // Stage.PreUpdate: Input processing
     .addSystem(playerInputSystemDescriptor)
     .addSystem(playerShootSystemDescriptor)
     .addSystem(shieldSystemDescriptor)
     .addSystem(turboSystemDescriptor)
+    .addSystem(bombSystemDescriptor)
 
     // Stage.Update: Game logic
     .addSystem(difficultyProgressionSystemDescriptor) // Increase difficulty every 30s
@@ -135,7 +134,8 @@ function main(): void {
     // Stage.Last: Rendering and cleanup
     .addSystem(renderSystemDescriptor)
     .addSystem(uiUpdateSystemDescriptor)
-    .addSystem(updateEventsSystemDescriptor); // Update event buffers
+    .addSystem(updateEventsSystemDescriptor) // Update event buffers
+    .addSystem(inputClearSystemDescriptor); // Clear justPressed at end of frame
 
   // Set up button handlers with bundle-based spawning
   setupButtonHandlers(app, canvas);

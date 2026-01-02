@@ -15,6 +15,7 @@
 export * from './input';
 export * from './shield';
 export * from './turbo';
+export * from './bomb';
 export * from './movement';
 export * from './ai';
 export * from './lifetime';

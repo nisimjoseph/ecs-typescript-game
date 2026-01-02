@@ -23,6 +23,7 @@ import {
   Player,
 } from '../components';
 import { CanvasContext, GameState } from '../resources';
+import { isBombAvailable, getBombRadii } from './bomb';
 
 /**
  * Render all entities to canvas.
@@ -164,6 +165,48 @@ export function renderSystem(world: World): void {
           ctx.beginPath();
           ctx.arc(pos.x, pos.y, shieldRadius - 5, 0, Math.PI * 2);
           ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Draw bomb availability circles if bomb is ready
+      const turboQuery = world.query(Turbo, Player);
+      const turboResult = turboQuery.single();
+      if (shieldResult && turboResult) {
+        const playerShield = shieldResult[1];
+        const playerTurbo = turboResult[1];
+        
+        if (isBombAvailable(playerShield, playerTurbo)) {
+          const { inner, outer } = getBombRadii();
+          
+          ctx.save();
+          
+          // Outer circle (200px) - orange dashed
+          ctx.strokeStyle = '#ff6600';
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 200) * 0.15;
+          ctx.setLineDash([10, 5]);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, outer, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Inner circle (100px) - yellow dashed
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 150) * 0.2;
+          ctx.setLineDash([8, 4]);
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, inner, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // "BOMB READY" indicator
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#ffff00';
+          ctx.font = '10px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.globalAlpha = 0.8;
+          ctx.fillText('BOMB READY [B]', pos.x, pos.y - h * 0.8 - 30);
+          
           ctx.restore();
         }
       }

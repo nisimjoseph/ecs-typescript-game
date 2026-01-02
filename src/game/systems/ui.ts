@@ -13,6 +13,7 @@
 import { World, Time } from '../../ecs';
 import { Shield, Turbo, Player } from '../components';
 import { GameState } from '../resources';
+import { isBombAvailable } from './bomb';
 
 /**
  * Update UI elements with game stats.
@@ -92,6 +93,32 @@ export function uiUpdateSystem(world: World): void {
     }
     if (turboPercentEl) {
       turboPercentEl.textContent = `${turboPercent}%`;
+    }
+  }
+
+  // Update bomb indicator
+  if (shieldResult && turboResult) {
+    const shield = shieldResult[1];
+    const turbo = turboResult[1];
+    const bombReady = isBombAvailable(shield, turbo);
+    
+    const bombIndicatorEl = document.getElementById('bomb-indicator');
+    const bombStatusEl = document.getElementById('bomb-status');
+    
+    if (bombIndicatorEl && bombStatusEl) {
+      if (bombReady) {
+        bombIndicatorEl.style.border = '1px solid #ffff00';
+        bombIndicatorEl.style.background = 'rgba(255, 255, 0, 0.1)';
+        bombStatusEl.textContent = 'READY!';
+        bombStatusEl.style.color = '#ffff00';
+        bombStatusEl.style.background = '#553300';
+      } else {
+        bombIndicatorEl.style.border = '1px dashed #555';
+        bombIndicatorEl.style.background = 'rgba(0, 0, 0, 0.3)';
+        bombStatusEl.textContent = 'NOT READY';
+        bombStatusEl.style.color = '#888';
+        bombStatusEl.style.background = '#333';
+      }
     }
   }
 }
