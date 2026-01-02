@@ -20,6 +20,17 @@ module.exports = {
       },
     ],
   },
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new (require('terser-webpack-plugin'))({
+        terserOptions: {
+          keep_classnames: true,
+          keep_fnames: true,
+        },
+      }),
+    ],
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: './public/index.html',
