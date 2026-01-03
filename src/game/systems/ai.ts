@@ -2,25 +2,28 @@
  * @module game/systems/ai
  * @description AI systems - autonomous entity behavior.
  * 
- * These systems control how enemies move and behave.
+ * These systems control how enemies move and behave in the infinite world.
+ * - Wander: Enemies move randomly within world bounds
+ * - FollowTarget: Round enemies only attack when within proximity of viewport
  * 
  * Interacts with:
  * - Wander component: Random movement
- * - FollowTarget component: Chase player
+ * - FollowTarget component: Proximity-based chase
+ * - Camera resource: Determines attack proximity
+ * - WorldBounds resource: Defines attack proximity threshold
  */
 
 import { World, Time } from '../../ecs';
-import { Position, Velocity, Wander, FollowTarget, Player } from '../components';
-import { GameConfig } from '../resources';
+import { Position, Velocity, Wander, FollowTarget, Player, Boss } from '../components';
+import { GameConfig, Camera, WorldBounds } from '../resources';
 
 /**
- * Wander AI - entities move randomly.
+ * Wander AI - entities move randomly in infinite world.
+ * Wandering rect enemies move freely - culling handles cleanup.
  */
 export function wanderSystem(world: World): void {
   const time = world.getResource(Time);
-  const config = world.getResource(GameConfig);
-  const hasNoResources = !time || !config;
-  if (hasNoResources) return;
+  if (!time) return;
 
   const query = world.query(Position, Velocity, Wander);
 
@@ -37,23 +40,23 @@ export function wanderSystem(world: World): void {
     vel.x = Math.cos(wander.direction) * wander.speed;
     vel.y = Math.sin(wander.direction) * wander.speed;
 
-    // Keep in bounds with wrapping
-    const margin = 20;
-    if (pos.x < -margin) pos.x = config.canvasWidth + margin;
-    if (pos.x > config.canvasWidth + margin) pos.x = -margin;
-    if (pos.y < -margin) pos.y = config.canvasHeight + margin;
-    if (pos.y > config.canvasHeight + margin) pos.y = -margin;
+    // No bounds checking - entities are culled when outside world bounds
   }
 }
 
 /**
- * Follow target AI - entities move toward a target.
+ * Follow target AI - round enemies move toward player only when in attack proximity.
+ * Enemies within 50px of viewport edge will start attacking.
+ * Enemies outside this proximity remain stationary.
+ * Bosses ALWAYS attack regardless of proximity.
  */
 export function followTargetSystem(world: World): void {
   const time = world.getResource(Time);
+  const camera = world.getResource(Camera);
+  const worldBounds = world.getResource(WorldBounds);
   if (!time) return;
 
-  // Update targets to player position
+  // Get player position
   const playerQuery = world.query(Position, Player);
   const playerResult = playerQuery.single();
   if (!playerResult) return;
@@ -61,8 +64,23 @@ export function followTargetSystem(world: World): void {
 
   const query = world.query(Position, Velocity, FollowTarget);
 
-  for (const [, pos, vel, follow] of query.iter()) {
-    // Update target to player position
+  for (const [entity, pos, vel, follow] of query.iter()) {
+    // Bosses ALWAYS attack - check if this entity is a boss
+    const isBoss = world.hasComponent(entity, Boss);
+    
+    // Check if enemy is within attack proximity of viewport
+    const isInAttackRange = isBoss || (camera && worldBounds 
+      ? worldBounds.isInAttackProximity(pos.x, pos.y, camera)
+      : true); // Default to attacking if no camera system
+
+    if (!isInAttackRange) {
+      // Outside attack range - stay stationary
+      vel.x = 0;
+      vel.y = 0;
+      continue;
+    }
+
+    // In attack range - pursue player
     follow.targetX = playerPos.x;
     follow.targetY = playerPos.y;
 

@@ -3,16 +3,18 @@
  * @description Boss-related logic and spawning.
  * 
  * Handles boss entity spawning with unique constraint (only one at a time).
+ * Bosses spawn near the player in the infinite world.
  * 
  * Interacts with:
  * - BossBundle: Creates boss entity
  * - BossSpawnTimer: Controls spawn timing
+ * - Camera: Gets player position for spawn location
  * - Observer system: Triggers spawn observers
  */
 
 import { World, ObserverRegistry, Time, system, Stage } from '../../ecs';
-import { Position, Boss, Enemy } from '../components';
-import { GameConfig, GameState, BossSpawnTimer } from '../resources';
+import { Position, Boss, Enemy, Player } from '../components';
+import { GameConfig, GameState, BossSpawnTimer, Camera } from '../resources';
 import { BossBundle } from '../bundles';
 import {
   GameEvents,
@@ -32,7 +34,7 @@ export function bossExists(world: World): boolean {
 
 /**
  * Spawn boss using bundle.
- * DEMONSTRATES: Bundle spawning + unique entity constraint
+ * Boss spawns at a random edge of the viewport in the infinite world.
  * Only spawns if no boss currently exists.
  */
 export function spawnBossWithBundle(world: World): void {
@@ -40,15 +42,27 @@ export function spawnBossWithBundle(world: World): void {
   const events = world.getResource(GameEvents);
   const registry = world.getResource(ObserverRegistry);
   const gameState = world.getResource(GameState);
+  const camera = world.getResource(Camera);
 
   if (!config || gameState?.isGameOver) return;
 
   // Check if boss already exists - only ONE boss at a time!
   if (bossExists(world)) return;
 
-  // Spawn boss in top center
-  const x = config.canvasWidth / 2;
-  const y = 80;
+  // Get player position (camera follows player)
+  let playerX = config.canvasWidth / 2;
+  let playerY = config.canvasHeight / 2;
+  
+  if (camera) {
+    playerX = camera.worldX;
+    playerY = camera.worldY;
+  }
+
+  // Spawn boss at random position around player (300-400px away)
+  const spawnDistance = 300 + Math.random() * 100;
+  const spawnAngle = Math.random() * Math.PI * 2;
+  const x = playerX + Math.cos(spawnAngle) * spawnDistance;
+  const y = playerY + Math.sin(spawnAngle) * spawnDistance;
 
   const bundle = new BossBundle(x, y);
 

@@ -15,6 +15,7 @@ import {
   mobileInputSyncSystem,
   playerInputSystem,
   playerShootSystem,
+  cameraFollowSystem,
 } from './input';
 import { shieldSystem } from './shield';
 import { turboSystem } from './turbo';
@@ -89,6 +90,11 @@ export const movementSystemDescriptor = system(movementSystem)
   .inStage(Stage.Update)
   .after('wander')
   .after('follow_target');
+
+export const cameraFollowSystemDescriptor = system(cameraFollowSystem)
+  .label('camera_follow')
+  .inStage(Stage.Update)
+  .after('movement');
 
 export const bounceSystemDescriptor = system(bounceSystem)
   .label('bounce')

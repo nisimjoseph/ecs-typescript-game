@@ -25,6 +25,7 @@ export * from './difficulty';
 export * from './spawning';
 export * from './render';
 export * from './ui';
+export * from './world';
 
 // System descriptors
 export * from './descriptors';

@@ -3,9 +3,13 @@
  * @description Render system - draws all entities to canvas.
  * 
  * Handles rendering of sprites, trails, health bars, explosions, and UI overlays.
+ * Uses Camera resource to transform world coordinates to screen coordinates.
+ * Only renders entities within viewport + render margin for performance.
  * 
  * Interacts with:
  * - CanvasContext resource: Provides canvas rendering context
+ * - Camera resource: World-to-screen coordinate transformation
+ * - WorldBounds resource: Determines render area
  * - All visual components: Sprite, Trail, Explosion, Health, Shield, Turbo
  */
 
@@ -22,14 +26,17 @@ import {
   Explosion,
   Player,
 } from '../components';
-import { CanvasContext, GameState, Input } from '../resources';
+import { CanvasContext, GameState, Input, Camera, WorldBounds } from '../resources';
 import { isBombAvailable, getBombRadii } from './bomb';
 
 /**
  * Render all entities to canvas.
+ * Uses camera to transform world coordinates to screen coordinates.
  */
 export function renderSystem(world: World): void {
   const canvasCtx = world.getResource(CanvasContext);
+  const camera = world.getResource(Camera);
+  const worldBounds = world.getResource(WorldBounds);
   if (!canvasCtx) return;
 
   const { ctx } = canvasCtx;
@@ -37,31 +44,54 @@ export function renderSystem(world: World): void {
   // Clear canvas
   canvasCtx.clear();
 
-  // Draw grid background
+  // Draw grid background (parallax scrolling based on camera)
   ctx.strokeStyle = '#1a1a2e';
   ctx.lineWidth = 1;
   const gridSize = 40;
-  for (let x = 0; x < ctx.canvas.width; x += gridSize) {
+  
+  // Calculate grid offset based on camera position
+  const gridOffsetX = camera ? camera.worldX % gridSize : 0;
+  const gridOffsetY = camera ? camera.worldY % gridSize : 0;
+  
+  for (let x = -gridOffsetX; x < ctx.canvas.width + gridSize; x += gridSize) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, ctx.canvas.height);
     ctx.stroke();
   }
-  for (let y = 0; y < ctx.canvas.height; y += gridSize) {
+  for (let y = -gridOffsetY; y < ctx.canvas.height + gridSize; y += gridSize) {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(ctx.canvas.width, y);
     ctx.stroke();
   }
 
+  // Helper to transform world coords to screen coords
+  const toScreen = (worldX: number, worldY: number): { x: number; y: number } => {
+    if (camera) {
+      return camera.worldToScreen(worldX, worldY);
+    }
+    return { x: worldX, y: worldY };
+  };
+
+  // Helper to check if entity is in render area
+  const isRenderable = (worldX: number, worldY: number): boolean => {
+    if (!camera || !worldBounds) return true;
+    return worldBounds.isInRenderArea(worldX, worldY, camera);
+  };
+
   // Draw trails first (behind entities)
   const trailQuery = world.query(Trail);
   for (const [, trail] of trailQuery.iter()) {
     for (const point of trail.positions) {
+      // Skip trail points outside render area
+      if (!isRenderable(point.x, point.y)) continue;
+      
+      const screenPos = toScreen(point.x, point.y);
       ctx.globalAlpha = point.alpha * 0.5;
       ctx.fillStyle = trail.color;
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+      ctx.arc(screenPos.x, screenPos.y, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -71,6 +101,10 @@ export function renderSystem(world: World): void {
   const query = world.query(Position, Size, Sprite);
 
   for (const [entity, pos, size, sprite] of query.iter()) {
+    // Skip entities outside render area
+    if (!isRenderable(pos.x, pos.y)) continue;
+
+    const screenPos = toScreen(pos.x, pos.y);
     ctx.fillStyle = sprite.color;
 
     // Check if entity has rotation (for player)
@@ -80,7 +114,7 @@ export function renderSystem(world: World): void {
     if (hasRotation && sprite.shape === 'spaceship') {
       // Draw spaceship (player) with clear direction indication
       ctx.save();
-      ctx.translate(pos.x, pos.y);
+      ctx.translate(screenPos.x, screenPos.y);
       ctx.rotate(rotationResult.angle + Math.PI / 2); // +PI/2 because ship points up by default
       
       const w = size.width;
@@ -155,7 +189,7 @@ export function renderSystem(world: World): void {
           ctx.lineWidth = 3;
           ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 100) * 0.2; // Pulsing effect
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, shieldRadius, 0, Math.PI * 2);
+          ctx.arc(screenPos.x, screenPos.y, shieldRadius, 0, Math.PI * 2);
           ctx.stroke();
           
           // Inner glow
@@ -163,7 +197,7 @@ export function renderSystem(world: World): void {
           ctx.lineWidth = 1;
           ctx.globalAlpha = 0.3;
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, shieldRadius - 5, 0, Math.PI * 2);
+          ctx.arc(screenPos.x, screenPos.y, shieldRadius - 5, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
@@ -187,7 +221,7 @@ export function renderSystem(world: World): void {
           ctx.globalAlpha = 0.4 + Math.sin(Date.now() / 200) * 0.15;
           ctx.setLineDash([10, 5]);
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, outer, 0, Math.PI * 2);
+          ctx.arc(screenPos.x, screenPos.y, outer, 0, Math.PI * 2);
           ctx.stroke();
           
           // Inner circle (100px) - yellow dashed
@@ -196,7 +230,7 @@ export function renderSystem(world: World): void {
           ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 150) * 0.2;
           ctx.setLineDash([8, 4]);
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, inner, 0, Math.PI * 2);
+          ctx.arc(screenPos.x, screenPos.y, inner, 0, Math.PI * 2);
           ctx.stroke();
           
           // "BOMB READY" indicator (hide [B] key hint on mobile)
@@ -207,7 +241,7 @@ export function renderSystem(world: World): void {
           ctx.globalAlpha = 0.8;
           const input = world.getResource(Input);
           const bombText = input?.isMobileMode() ? 'BOMB READY' : 'BOMB READY [B]';
-          ctx.fillText(bombText, pos.x, pos.y - h * 0.8 - 30);
+          ctx.fillText(bombText, screenPos.x, screenPos.y - h * 0.8 - 30);
           
           ctx.restore();
         }
@@ -215,7 +249,7 @@ export function renderSystem(world: World): void {
     } else if (hasRotation && sprite.shape === 'triangle') {
       // Draw rotated triangle (fallback)
       ctx.save();
-      ctx.translate(pos.x, pos.y);
+      ctx.translate(screenPos.x, screenPos.y);
       ctx.rotate(rotationResult.angle + Math.PI / 2);
       ctx.beginPath();
       ctx.moveTo(0, -size.height / 2);
@@ -229,8 +263,8 @@ export function renderSystem(world: World): void {
       switch (sprite.shape) {
         case 'rect':
           ctx.fillRect(
-            pos.x - size.width / 2,
-            pos.y - size.height / 2,
+            screenPos.x - size.width / 2,
+            screenPos.y - size.height / 2,
             size.width,
             size.height
           );
@@ -238,15 +272,15 @@ export function renderSystem(world: World): void {
 
         case 'circle':
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, size.width / 2, 0, Math.PI * 2);
+          ctx.arc(screenPos.x, screenPos.y, size.width / 2, 0, Math.PI * 2);
           ctx.fill();
           break;
 
         case 'triangle':
           ctx.beginPath();
-          ctx.moveTo(pos.x, pos.y - size.height / 2);
-          ctx.lineTo(pos.x - size.width / 2, pos.y + size.height / 2);
-          ctx.lineTo(pos.x + size.width / 2, pos.y + size.height / 2);
+          ctx.moveTo(screenPos.x, screenPos.y - size.height / 2);
+          ctx.lineTo(screenPos.x - size.width / 2, screenPos.y + size.height / 2);
+          ctx.lineTo(screenPos.x + size.width / 2, screenPos.y + size.height / 2);
           ctx.closePath();
           ctx.fill();
           break;
@@ -257,19 +291,23 @@ export function renderSystem(world: World): void {
   // Draw health bars for entities with Health
   const healthQuery = world.query(Position, Size, Health);
   for (const [, pos, size, health] of healthQuery.iter()) {
+    // Skip entities outside render area
+    if (!isRenderable(pos.x, pos.y)) continue;
+
+    const screenPos = toScreen(pos.x, pos.y);
     const healthPercent = health.current / health.max;
     const barWidth = size.width;
     const barHeight = 4;
-    const barY = pos.y - size.height / 2 - 8;
+    const barY = screenPos.y - size.height / 2 - 8;
 
     // Background
     ctx.fillStyle = '#333';
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth, barHeight);
 
     // Health fill
     const healthColor = healthPercent > 0.5 ? '#00ff88' : healthPercent > 0.25 ? '#ffdd00' : '#ff4444';
     ctx.fillStyle = healthColor;
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth * healthPercent, barHeight);
   }
 
   // Draw shield bar for player (blue bar below health bar)
@@ -277,25 +315,26 @@ export function renderSystem(world: World): void {
   const playerShieldResult = playerShieldQuery.single();
   if (playerShieldResult) {
     const [, pos, size, shield] = playerShieldResult;
+    const screenPos = toScreen(pos.x, pos.y);
     const shieldPercent = shield.getPercentage();
     const barWidth = size.width;
     const barHeight = 4;
-    const barY = pos.y - size.height / 2 - 14; // Above the health bar
+    const barY = screenPos.y - size.height / 2 - 14; // Above the health bar
 
     // Background
     ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth, barHeight);
 
     // Shield fill (blue, brighter when active)
     const shieldColor = shield.isActive ? '#00ffff' : '#00a0d9';
     ctx.fillStyle = shieldColor;
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * shieldPercent, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth * shieldPercent, barHeight);
 
     // Border when active
     if (shield.isActive) {
       ctx.strokeStyle = '#00ffff';
       ctx.lineWidth = 1;
-      ctx.strokeRect(pos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+      ctx.strokeRect(screenPos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
     }
   }
 
@@ -304,31 +343,36 @@ export function renderSystem(world: World): void {
   const playerTurboResult = playerTurboQuery.single();
   if (playerTurboResult) {
     const [, pos, size, turbo] = playerTurboResult;
+    const screenPos = toScreen(pos.x, pos.y);
     const turboPercent = turbo.getPercentage();
     const barWidth = size.width;
     const barHeight = 4;
-    const barY = pos.y - size.height / 2 - 20; // Above the shield bar
+    const barY = screenPos.y - size.height / 2 - 20; // Above the shield bar
 
     // Background
     ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth, barHeight);
 
     // Turbo fill (orange, brighter when active)
     const turboColor = turbo.isActive ? '#ff6600' : '#cc4400';
     ctx.fillStyle = turboColor;
-    ctx.fillRect(pos.x - barWidth / 2, barY, barWidth * turboPercent, barHeight);
+    ctx.fillRect(screenPos.x - barWidth / 2, barY, barWidth * turboPercent, barHeight);
 
     // Border when active
     if (turbo.isActive) {
       ctx.strokeStyle = '#ff6600';
       ctx.lineWidth = 1;
-      ctx.strokeRect(pos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+      ctx.strokeRect(screenPos.x - barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
     }
   }
 
   // Draw explosions
   const explosionQuery = world.query(Position, Explosion);
   for (const [, pos, explosion] of explosionQuery.iter()) {
+    // Skip explosions outside render area
+    if (!isRenderable(pos.x, pos.y)) continue;
+
+    const screenPos = toScreen(pos.x, pos.y);
     const progress = explosion.elapsed / explosion.duration;
     const alpha = 1 - progress;
     
@@ -337,14 +381,14 @@ export function renderSystem(world: World): void {
     ctx.lineWidth = 4;
     ctx.globalAlpha = alpha;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, explosion.currentRadius, 0, Math.PI * 2);
+    ctx.arc(screenPos.x, screenPos.y, explosion.currentRadius, 0, Math.PI * 2);
     ctx.stroke();
     
     // Draw inner glow
     ctx.fillStyle = explosion.color;
     ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, explosion.currentRadius * 0.7, 0, Math.PI * 2);
+    ctx.arc(screenPos.x, screenPos.y, explosion.currentRadius * 0.7, 0, Math.PI * 2);
     ctx.fill();
     
     // Draw particles
@@ -353,8 +397,8 @@ export function renderSystem(world: World): void {
       ctx.fillStyle = explosion.color;
       ctx.beginPath();
       ctx.arc(
-        pos.x + particle.x,
-        pos.y + particle.y,
+        screenPos.x + particle.x,
+        screenPos.y + particle.y,
         particle.size * (1 - progress),
         0,
         Math.PI * 2

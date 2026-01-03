@@ -153,25 +153,25 @@ export function playerEnemyCollisionSystem(world: World): void {
       logger.component(`Player hit! Health: ${playerHealth.current}`);
     }
 
-    // AUTO-SPAWN POWER-UP when player is hurt (at random distant position)
-    if (config) {
-      const powerUpX = Math.random() * (config.canvasWidth - 80) + 40;
-      const powerUpY = Math.random() * (config.canvasHeight - 80) + 40;
-      
-      commands
-        .spawn()
-        .insert(new Position(powerUpX, powerUpY))
-        .insert(new Velocity(0, 0))
-        .insert(new Size(20, 20))
-        .insert(new Sprite('#00d9ff', 'circle'))
-        .insert(new PowerUp())
-        .insert(new Health(25, 25)) // Heals 25 HP
-        .insert(new Collider(12, 'powerup'))
-        .insert(new Lifetime(15)); // 15 seconds before relocating
-      
-      if (logger) {
-        logger.entity(`⭐ Power-up spawned to help player!`);
-      }
+    // AUTO-SPAWN POWER-UP when player is hurt (nearby in world space)
+    const powerUpDistance = 100 + Math.random() * 100; // 100-200 pixels away
+    const powerUpAngle = Math.random() * Math.PI * 2;
+    const powerUpX = playerPos.x + Math.cos(powerUpAngle) * powerUpDistance;
+    const powerUpY = playerPos.y + Math.sin(powerUpAngle) * powerUpDistance;
+    
+    commands
+      .spawn()
+      .insert(new Position(powerUpX, powerUpY))
+      .insert(new Velocity(0, 0))
+      .insert(new Size(20, 20))
+      .insert(new Sprite('#00d9ff', 'circle'))
+      .insert(new PowerUp())
+      .insert(new Health(25, 25)) // Heals 25 HP
+      .insert(new Collider(12, 'powerup'))
+      .insert(new Lifetime(15)); // 15 seconds before relocating
+    
+    if (logger) {
+      logger.entity(`⭐ Power-up spawned to help player!`);
     }
 
     // Check game over

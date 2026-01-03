@@ -11,10 +11,14 @@
  * - Score and game state
  * - Canvas context
  * - Sound manager (see audio.ts)
+ * - Camera and world bounds (infinite scrolling world)
  */
 
 // Re-export SoundManager from audio module
 export { SoundManager } from './audio';
+
+// Re-export Camera and WorldBounds for infinite scrolling world
+export { Camera, WorldBounds, BossTerritory } from './resources/camera';
 
 // Re-export MobileControls for easy access
 export { MobileControls, isMobileDevice } from './mobile_controls';
@@ -191,8 +195,13 @@ export class GameState {
   difficultyLevel: number = 0;
   /** Time tracker for difficulty progression */
   difficultyTimer: number = 0;
-  /** Base max enemies at start */
-  baseMaxEnemies: number = 10;
+  /** Enemy density: 1 enemy per this many square pixels */
+  enemyDensity: number = 80000; // ~1 enemy per 283x283 area
+  /** Minimum enemies regardless of world size */
+  minEnemies: number = 8;
+  /** Cached world area for max enemy calculation */
+  private cachedWorldArea: number = 0;
+  private cachedMaxEnemies: number = 0;
 
   addScore(points: number): void {
     this.score += points;
@@ -233,10 +242,27 @@ export class GameState {
   }
 
   /**
-   * Get current max enemies based on difficulty.
+   * Calculate max enemies based on world area.
+   * Formula: (worldArea / density) + difficultyBonus, min 15
    */
-  getMaxEnemies(): number {
-    return this.baseMaxEnemies + this.difficultyLevel;
+  getMaxEnemies(worldWidth: number = 1800, worldHeight: number = 1500): number {
+    const worldArea = worldWidth * worldHeight;
+    
+    // Use cache if world size unchanged
+    if (worldArea === this.cachedWorldArea && this.difficultyLevel === 0) {
+      return this.cachedMaxEnemies + this.difficultyLevel * 2;
+    }
+    
+    // Calculate based on density
+    const baseCount = Math.floor(worldArea / this.enemyDensity);
+    const difficultyBonus = this.difficultyLevel * 2;
+    const maxEnemies = Math.max(this.minEnemies, baseCount) + difficultyBonus;
+    
+    // Cache result
+    this.cachedWorldArea = worldArea;
+    this.cachedMaxEnemies = Math.max(this.minEnemies, baseCount);
+    
+    return maxEnemies;
   }
 
   reset(): void {

@@ -186,7 +186,7 @@ export class PowerUpBundle implements Bundle {
 /**
  * Boss bundle - large powerful enemy.
  * Only one boss at a time - spawns periodically.
- * DEMONSTRATES: Bundle system, unique entity constraint
+ * Bosses don't bounce - they relentlessly pursue the player.
  */
 export class BossBundle implements Bundle {
   constructor(
@@ -205,9 +205,9 @@ export class BossBundle implements Bundle {
       new Health(300, 300),                // High health
       new Damage(50),                      // High damage
       new Collider(30, 'boss'),            // Large collider
-      new FollowTarget(400, 300, 40),      // Slower but relentless
+      new FollowTarget(400, 300, 80),      // Faster pursuit (was 40)
       new Trail('#ff00ff', 15),            // Long purple trail
-      new Bouncy(1.0),
+      // No Bouncy - boss freely pursues in infinite world
     ];
   }
 }

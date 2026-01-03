@@ -3,9 +3,11 @@
  * @description Input systems - handle player input and actions.
  * 
  * These systems process keyboard input and translate it into game actions.
+ * Player position updates move the camera to follow.
  * 
  * Interacts with:
  * - Input resource: Reads keyboard state
+ * - Camera resource: Updates camera to follow player
  * - Player entities: Updates position, velocity, rotation
  * - Commands: Spawns bullets
  * - SoundManager: Plays shooting sound effects
@@ -26,7 +28,7 @@ import {
   Collider,
   Lifetime,
 } from '../components';
-import { Input, GameConfig, GameState, ShootCooldown, Logger, SoundManager, MobileControlsResource } from '../resources';
+import { Input, GameConfig, GameState, ShootCooldown, Logger, SoundManager, MobileControlsResource, Camera } from '../resources';
 
 /**
  * Clear input state at the start of each frame.
@@ -64,6 +66,9 @@ const ROTATION_SPEED = 4.0;
 
 /**
  * Handle player movement and rotation.
+ * Player moves freely in world space (infinite world).
+ * Camera follows player to keep them centered on screen.
+ * 
  * - W/S or Up/Down arrows: Move forward/backward in facing direction
  * - A/D or Left/Right arrows: Rotate player
  * - Mobile: Touch joystick for direct movement
@@ -73,6 +78,7 @@ export function playerInputSystem(world: World): void {
   const config = world.getResource(GameConfig);
   const time = world.getResource(Time);
   const gameState = world.getResource(GameState);
+  const camera = world.getResource(Camera);
   const hasNoResources = !input || !config || !time;
   if (hasNoResources) return;
   if (gameState?.isGameOver) return; // Skip if game over
@@ -143,15 +149,27 @@ export function playerInputSystem(world: World): void {
     }
   }
 
-  // Keep player in bounds
-  const sizeQuery = world.query(Size, Player).single();
-  if (sizeQuery) {
-    const halfWidth = sizeQuery[1].width / 2;
-    const halfHeight = sizeQuery[1].height / 2;
+  // Note: Player can move freely in infinite world - no bounds checking needed
+  // Camera follows player after movement system runs
+}
 
-    pos.x = Math.max(halfWidth, Math.min(config.canvasWidth - halfWidth, pos.x));
-    pos.y = Math.max(halfHeight, Math.min(config.canvasHeight - halfHeight, pos.y));
-  }
+/**
+ * Update camera to follow player position.
+ * Must run AFTER movement system.
+ */
+export function cameraFollowSystem(world: World): void {
+  const camera = world.getResource(Camera);
+  if (!camera) return;
+
+  const playerQuery = world.query(Position, Player);
+  const playerResult = playerQuery.single();
+  if (!playerResult) return;
+
+  const [, playerPos] = playerResult;
+
+  // Camera position = player position (player always centered)
+  camera.worldX = playerPos.x;
+  camera.worldY = playerPos.y;
 }
 
 /**

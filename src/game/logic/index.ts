@@ -19,6 +19,7 @@
 export {
   setupObserversSystem,
   spawnPlayerSystem,
+  spawnInitialEnemiesSystem,
 } from './startup';
 
 // Event processing

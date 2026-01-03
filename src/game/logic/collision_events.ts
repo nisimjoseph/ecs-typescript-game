@@ -182,11 +182,12 @@ export function collisionWithEventsSystem(world: World): void {
           triggerChangeObserver(registry, playerEntity, Health, playerHealth);
         }
 
-        // AUTO-SPAWN POWER-UP when player is hurt!
-        const config = world.getResource(GameConfig);
-        if (config && !playerHealth.isDead()) {
-          const powerUpX = Math.random() * (config.canvasWidth - 80) + 40;
-          const powerUpY = Math.random() * (config.canvasHeight - 80) + 40;
+        // AUTO-SPAWN POWER-UP when player is hurt (nearby in world space)
+        if (!playerHealth.isDead()) {
+          const powerUpDistance = 100 + Math.random() * 100; // 100-200 pixels away
+          const powerUpAngle = Math.random() * Math.PI * 2;
+          const powerUpX = playerPos.x + Math.cos(powerUpAngle) * powerUpDistance;
+          const powerUpY = playerPos.y + Math.sin(powerUpAngle) * powerUpDistance;
           
           commands
             .spawn()

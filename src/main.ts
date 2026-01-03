@@ -31,9 +31,23 @@ import {
   Input,
   SoundManager,
   MobileControlsResource,
+  Camera,
+  WorldBounds,
 } from './game/resources';
 import { GameEvents } from './game/events';
 import { MobileControls, isMobileDevice } from './game/mobile_controls';
+// Import components for debug API
+import {
+  Position,
+  Velocity,
+  Size,
+  Sprite,
+  Enemy,
+  Health,
+  Collider,
+  Wander,
+  Player,
+} from './game/components';
 
 // Import system descriptors from game/systems
 import {
@@ -47,6 +61,7 @@ import {
   wanderSystemDescriptor,
   followTargetSystemDescriptor,
   movementSystemDescriptor,
+  cameraFollowSystemDescriptor,
   bounceSystemDescriptor,
   trailSystemDescriptor,
   lifetimeSystemDescriptor,
@@ -55,12 +70,15 @@ import {
   powerUpAutoSpawnSystemDescriptor,
   renderSystemDescriptor,
   uiUpdateSystemDescriptor,
+  entityCullingSystemDescriptor,
+  bossActivationSystemDescriptor,
 } from './game/systems';
 
 // Import logic modules
 import {
   setupObserversSystem,
   spawnPlayerSystem,
+  spawnInitialEnemiesSystem,
   processEventsSystemDescriptor,
   updateEventsSystemDescriptor,
   detectHealthChangesSystemDescriptor,
@@ -163,6 +181,10 @@ function main(): void {
   const logicalWidth = isMobile ? window.innerWidth : canvas.width;
   const logicalHeight = isMobile ? window.innerHeight : canvas.height;
 
+  // Player starts at center of world (0, 0)
+  const playerStartX = 0;
+  const playerStartY = 0;
+
   // Create the App with ALL features
   const app = new App()
     // ============ RESOURCES ============
@@ -172,18 +194,22 @@ function main(): void {
     .insertResource(new MobileControlsResource(mobileControls)) // Mobile controls
     .insertResource(new CanvasContext(canvas))
     .insertResource(new Logger())
-    .insertResource(new SpawnTimer(2))
+    .insertResource(new SpawnTimer(0.5)) // Faster spawning for infinite world
     .insertResource(new ShootCooldown(0.15))
-    .insertResource(new BossSpawnTimer(15)) // Boss spawns every 15 seconds
+    .insertResource(new BossSpawnTimer(8)) // Boss spawns every 8 seconds
     .insertResource(soundManager) // Sound effects manager
+    // Camera and world bounds for infinite scrolling
+    .insertResource(new Camera(playerStartX, playerStartY, logicalWidth, logicalHeight))
+    .insertResource(new WorldBounds()) // 500px world margin, 100px render margin
     // Event system resource
     .insertResource(new GameEvents())
     // Observer registry resource
     .insertResource(new ObserverRegistry())
 
     // ============ STARTUP SYSTEMS ============
-    .addStartupSystem(setupObserversSystem) // Setup observers first
-    .addStartupSystem(spawnPlayerSystem)    // Then spawn player
+    .addStartupSystem(setupObserversSystem)      // Setup observers first
+    .addStartupSystem(spawnPlayerSystem)         // Then spawn player
+    .addStartupSystem(spawnInitialEnemiesSystem) // Populate world with enemies
 
     // ============ FRAME SYSTEMS ============
 
@@ -197,9 +223,11 @@ function main(): void {
 
     // Stage.Update: Game logic
     .addSystem(difficultyProgressionSystemDescriptor) // Increase difficulty every 30s
+    .addSystem(bossActivationSystemDescriptor) // Check boss territory activation
     .addSystem(wanderSystemDescriptor)
     .addSystem(followTargetSystemDescriptor)
     .addSystem(movementSystemDescriptor)
+    .addSystem(cameraFollowSystemDescriptor) // Camera follows player after movement
     .addSystem(bounceSystemDescriptor)
     .addSystem(trailSystemDescriptor)
 
@@ -213,6 +241,7 @@ function main(): void {
     .addSystem(enemySpawnSystemDescriptor)
     .addSystem(powerUpAutoSpawnSystemDescriptor) // Auto-spawn power-ups when player needs healing
     .addSystem(bossSpawnSystemDescriptor) // Boss spawns periodically
+    .addSystem(entityCullingSystemDescriptor) // Cull entities outside world bounds
 
     // Stage.Last: Rendering and cleanup
     .addSystem(renderSystemDescriptor)
@@ -246,6 +275,85 @@ function main(): void {
     });
   }
 
+  // Set up debug API for testing
+  window.gameDebug = {
+    movePlayer: (dx: number, dy: number) => {
+      const world = app.getWorld();
+      const playerQuery = world.query(Position, Player);
+      const playerResult = playerQuery.single();
+      if (playerResult) {
+        const [, pos] = playerResult;
+        pos.x += dx;
+        pos.y += dy;
+        console.log(`Player moved to (${pos.x.toFixed(0)}, ${pos.y.toFixed(0)})`);
+      }
+    },
+    teleportPlayer: (x: number, y: number) => {
+      const world = app.getWorld();
+      const playerQuery = world.query(Position, Player);
+      const playerResult = playerQuery.single();
+      if (playerResult) {
+        const [, pos] = playerResult;
+        pos.x = x;
+        pos.y = y;
+        console.log(`Player teleported to (${x}, ${y})`);
+      }
+    },
+    getPlayerPosition: () => {
+      const world = app.getWorld();
+      const playerQuery = world.query(Position, Player);
+      const playerResult = playerQuery.single();
+      if (playerResult) {
+        const [, pos] = playerResult;
+        return { x: pos.x, y: pos.y };
+      }
+      return null;
+    },
+    getCameraPosition: () => {
+      const world = app.getWorld();
+      const cam = world.getResource(Camera);
+      if (cam) {
+        return { x: cam.worldX, y: cam.worldY };
+      }
+      return null;
+    },
+    getWorldBounds: () => {
+      const world = app.getWorld();
+      const cam = world.getResource(Camera);
+      const wb = world.getResource(WorldBounds);
+      if (cam && wb) {
+        return wb.getWorldBounds(cam);
+      }
+      return null;
+    },
+    spawnEnemiesAround: (count: number) => {
+      const world = app.getWorld();
+      const cam = world.getResource(Camera);
+      const commands = world.getCommands();
+      if (!cam) return;
+      
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const distance = 150 + Math.random() * 100;
+        const x = cam.worldX + Math.cos(angle) * distance;
+        const y = cam.worldY + Math.sin(angle) * distance;
+        
+        commands
+          .spawn()
+          .insert(new Position(x, y))
+          .insert(new Velocity(0, 0))
+          .insert(new Size(24, 24))
+          .insert(new Sprite('#ff6b6b', 'rect'))
+          .insert(new Enemy())
+          .insert(new Health(50, 50))
+          .insert(new Collider(12, 'enemy'))
+          .insert(new Wander(40, 2));
+      }
+      world.applyCommands();
+      console.log(`Spawned ${count} enemies around player`);
+    },
+  };
+
   // Run the game!
   app.run();
 
@@ -263,6 +371,20 @@ function main(): void {
 
 // Import difficulty system descriptor
 import { difficultyProgressionSystemDescriptor } from './game/systems';
+
+// Debug API for testing - exposed globally
+declare global {
+  interface Window {
+    gameDebug: {
+      movePlayer: (dx: number, dy: number) => void;
+      teleportPlayer: (x: number, y: number) => void;
+      getPlayerPosition: () => { x: number; y: number } | null;
+      getCameraPosition: () => { x: number; y: number } | null;
+      getWorldBounds: () => { minX: number; maxX: number; minY: number; maxY: number } | null;
+      spawnEnemiesAround: (count: number) => void;
+    };
+  }
+}
 
 // Start the game when DOM is ready
 if (document.readyState === 'loading') {
