@@ -109,7 +109,11 @@ export function resetGame(app: App, world: World, canvas: HTMLCanvasElement): vo
   // Stop and clear everything
   app.reset();
 
-  const config = new GameConfig(canvas.width, canvas.height);
+  // Use logical size (not buffer size which includes DPR on mobile)
+  const isMobile = mobileControls !== null;
+  const logicalWidth = isMobile ? window.innerWidth : canvas.width;
+  const logicalHeight = isMobile ? window.innerHeight : canvas.height;
+  const config = new GameConfig(logicalWidth, logicalHeight);
   const gameState = new GameState();
   const events = new GameEvents();
   const registry = new ObserverRegistry();
