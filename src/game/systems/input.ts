@@ -26,7 +26,7 @@ import {
   Collider,
   Lifetime,
 } from '../components';
-import { Input, GameConfig, GameState, ShootCooldown, Logger, SoundManager } from '../resources';
+import { Input, GameConfig, GameState, ShootCooldown, Logger, SoundManager, MobileControlsResource } from '../resources';
 
 /**
  * Clear input state at the start of each frame.
@@ -38,6 +38,27 @@ export function inputClearSystem(world: World): void {
   }
 }
 
+/**
+ * Sync mobile controls state to Input resource.
+ * Must run before other input systems.
+ * Also updates mobile UI based on game state.
+ */
+export function mobileInputSyncSystem(world: World): void {
+  const input = world.getResource(Input);
+  const mobileRes = world.getResource(MobileControlsResource);
+  const gameState = world.getResource(GameState);
+  
+  const hasMobileControls = input && mobileRes?.controls;
+  if (!hasMobileControls) return;
+  
+  // Get touch state from mobile controls and sync to Input
+  const touchState = mobileRes.controls!.getInputState();
+  input.setTouchState(touchState);
+  
+  // Update reset button visibility based on game over state
+  mobileRes.controls!.setShowReset(gameState?.isGameOver ?? false);
+}
+
 /** Rotation speed in radians per second */
 const ROTATION_SPEED = 4.0;
 
@@ -45,6 +66,7 @@ const ROTATION_SPEED = 4.0;
  * Handle player movement and rotation.
  * - W/S or Up/Down arrows: Move forward/backward in facing direction
  * - A/D or Left/Right arrows: Rotate player
+ * - Mobile: Touch joystick for direct movement
  */
 export function playerInputSystem(world: World): void {
   const input = world.getResource(Input);
@@ -66,32 +88,49 @@ export function playerInputSystem(world: World): void {
   vel.x = 0;
   vel.y = 0;
 
-  // A/D or Left/Right arrows for rotation
-  const rotateLeft = input.isPressed('arrowleft') || input.isPressed('a');
-  const rotateRight = input.isPressed('arrowright') || input.isPressed('d');
-  
-  if (rotateLeft) {
-    rotation.angle -= ROTATION_SPEED * time.delta;
-  }
-  if (rotateRight) {
-    rotation.angle += ROTATION_SPEED * time.delta;
-  }
+  // Check if mobile mode
+  if (input.isMobileMode()) {
+    // Mobile: Use touch joystick for direct movement
+    const touchMove = input.getTouchMovement();
+    const hasTouchInput = Math.abs(touchMove.x) > 0.1 || Math.abs(touchMove.y) > 0.1;
+    
+    if (hasTouchInput) {
+      // Direct movement in joystick direction
+      vel.x = touchMove.x * config.playerSpeed;
+      vel.y = touchMove.y * config.playerSpeed;
+      
+      // Update rotation to face movement direction
+      rotation.angle = Math.atan2(touchMove.y, touchMove.x);
+    }
+  } else {
+    // Desktop: Keyboard controls
+    // A/D or Left/Right arrows for rotation
+    const rotateLeft = input.isPressed('arrowleft') || input.isPressed('a');
+    const rotateRight = input.isPressed('arrowright') || input.isPressed('d');
+    
+    if (rotateLeft) {
+      rotation.angle -= ROTATION_SPEED * time.delta;
+    }
+    if (rotateRight) {
+      rotation.angle += ROTATION_SPEED * time.delta;
+    }
 
-  // Calculate facing direction
-  const dirX = Math.cos(rotation.angle);
-  const dirY = Math.sin(rotation.angle);
+    // Calculate facing direction
+    const dirX = Math.cos(rotation.angle);
+    const dirY = Math.sin(rotation.angle);
 
-  // W/S or Up/Down arrows for forward/backward movement (relative to facing)
-  const moveForward = input.isPressed('arrowup') || input.isPressed('w');
-  const moveBackward = input.isPressed('arrowdown') || input.isPressed('s');
-  
-  if (moveForward) {
-    vel.x = dirX * config.playerSpeed;
-    vel.y = dirY * config.playerSpeed;
-  }
-  if (moveBackward) {
-    vel.x = -dirX * config.playerSpeed;
-    vel.y = -dirY * config.playerSpeed;
+    // W/S or Up/Down arrows for forward/backward movement (relative to facing)
+    const moveForward = input.isPressed('arrowup') || input.isPressed('w');
+    const moveBackward = input.isPressed('arrowdown') || input.isPressed('s');
+    
+    if (moveForward) {
+      vel.x = dirX * config.playerSpeed;
+      vel.y = dirY * config.playerSpeed;
+    }
+    if (moveBackward) {
+      vel.x = -dirX * config.playerSpeed;
+      vel.y = -dirY * config.playerSpeed;
+    }
   }
 
   // Apply turbo speed boost if active

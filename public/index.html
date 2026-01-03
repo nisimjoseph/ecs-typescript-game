@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ECS TypeScript - Bevy Inspired</title>
   <style>
     * {
@@ -17,6 +17,39 @@
       min-height: 100vh;
       color: #e4e4e7;
       overflow-x: hidden;
+    }
+    
+    /* Mobile mode - fullscreen canvas only */
+    body.mobile-mode {
+      overflow: hidden;
+      background: #0a0a0f;
+    }
+    
+    body.mobile-mode .container {
+      padding: 0;
+      max-width: none;
+    }
+    
+    body.mobile-mode h1,
+    body.mobile-mode .subtitle,
+    body.mobile-mode .info-panel,
+    body.mobile-mode .controls {
+      display: none !important;
+    }
+    
+    body.mobile-mode .game-area {
+      display: block;
+      margin: 0;
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    body.mobile-mode #game-canvas {
+      width: 100vw !important;
+      height: 100vh !important;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
     }
     
     .container {

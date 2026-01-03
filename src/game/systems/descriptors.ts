@@ -12,6 +12,7 @@
 import { system, Stage } from '../../ecs';
 import {
   inputClearSystem,
+  mobileInputSyncSystem,
   playerInputSystem,
   playerShootSystem,
 } from './input';
@@ -46,9 +47,14 @@ export const inputClearSystemDescriptor = system(inputClearSystem)
   .label('input_clear')
   .inStage(Stage.Last);
 
+export const mobileInputSyncSystemDescriptor = system(mobileInputSyncSystem)
+  .label('mobile_input_sync')
+  .inStage(Stage.PreUpdate);
+
 export const playerInputSystemDescriptor = system(playerInputSystem)
   .label('player_input')
-  .inStage(Stage.PreUpdate);
+  .inStage(Stage.PreUpdate)
+  .after('mobile_input_sync');
 
 export const playerShootSystemDescriptor = system(playerShootSystem)
   .label('player_shoot')

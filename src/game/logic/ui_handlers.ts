@@ -20,6 +20,7 @@ import {
   ShootCooldown,
   BossSpawnTimer,
   Input,
+  MobileControlsResource,
 } from '../resources';
 import { PlayerBundle } from '../bundles';
 import { GameEvents, GameStartEvent } from '../events';
@@ -98,8 +99,13 @@ export function setupButtonHandlers(app: App, canvas: HTMLCanvasElement): void {
 
 /**
  * Reset the game to initial state.
+ * Exported so it can be used by mobile controls.
  */
-function resetGame(app: App, world: World, canvas: HTMLCanvasElement): void {
+export function resetGame(app: App, world: World, canvas: HTMLCanvasElement): void {
+  // Preserve mobile controls before reset
+  const existingMobileRes = world.getResource(MobileControlsResource);
+  const mobileControls = existingMobileRes?.controls ?? null;
+  
   // Stop and clear everything
   app.reset();
 
@@ -113,6 +119,7 @@ function resetGame(app: App, world: World, canvas: HTMLCanvasElement): void {
   world.insertResource(config);
   world.insertResource(gameState);
   world.insertResource(new Input());
+  world.insertResource(new MobileControlsResource(mobileControls)); // Preserve mobile controls
   world.insertResource(new CanvasContext(canvas));
   world.insertResource(logger);
   world.insertResource(new SpawnTimer(2));
@@ -120,6 +127,14 @@ function resetGame(app: App, world: World, canvas: HTMLCanvasElement): void {
   world.insertResource(new BossSpawnTimer(15)); // Boss spawn timer
   world.insertResource(events);
   world.insertResource(registry);
+  
+  // Re-enable mobile mode if needed
+  if (mobileControls) {
+    const input = world.getResource(Input);
+    if (input) {
+      input.setMobileMode(true);
+    }
+  }
 
   // Setup observers
   setupObservers(registry, logger, gameState, events);

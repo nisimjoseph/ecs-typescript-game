@@ -16,8 +16,32 @@
 // Re-export SoundManager from audio module
 export { SoundManager } from './audio';
 
+// Re-export MobileControls for easy access
+export { MobileControls, isMobileDevice } from './mobile_controls';
+import type { MobileControls as MobileControlsType } from './mobile_controls';
+
 /**
- * Input resource - tracks keyboard input state.
+ * Mobile controls resource - holds reference to mobile touch controls.
+ * Used to sync touch state to Input resource each frame.
+ */
+export class MobileControlsResource {
+  constructor(public controls: MobileControlsType | null = null) {}
+}
+
+/**
+ * Touch input state interface (imported from mobile_controls)
+ */
+export interface TouchInputState {
+  moveX: number;
+  moveY: number;
+  shooting: boolean;
+  shieldActive: boolean;
+  turboActive: boolean;
+  bombTriggered: boolean;
+}
+
+/**
+ * Input resource - tracks keyboard and touch input state.
  */
 export class Input {
   /** Currently pressed keys */
@@ -26,6 +50,11 @@ export class Input {
   private justPressed: Set<string> = new Set();
   /** Keys that were just released this frame */
   private justReleased: Set<string> = new Set();
+  
+  /** Touch/mobile input state */
+  private touchState: TouchInputState | null = null;
+  /** Whether mobile controls are active */
+  private mobileMode = false;
 
   constructor() {
     // Set up event listeners
@@ -49,17 +78,71 @@ export class Input {
   }
 
   /**
+   * Enable mobile mode with touch controls.
+   */
+  setMobileMode(enabled: boolean): void {
+    this.mobileMode = enabled;
+  }
+
+  /**
+   * Check if mobile mode is active.
+   */
+  isMobileMode(): boolean {
+    return this.mobileMode;
+  }
+
+  /**
+   * Update touch state from mobile controls.
+   */
+  setTouchState(state: TouchInputState): void {
+    this.touchState = state;
+  }
+
+  /**
+   * Get normalized movement input (-1 to 1) from touch controls.
+   */
+  getTouchMovement(): { x: number; y: number } {
+    if (this.touchState) {
+      return { x: this.touchState.moveX, y: this.touchState.moveY };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  /**
    * Check if a key is currently held down.
+   * In mobile mode, also checks touch state for equivalent actions.
    */
   isPressed(key: string): boolean {
-    return this.pressed.has(key.toLowerCase());
+    const k = key.toLowerCase();
+    
+    // Always check keyboard first
+    if (this.pressed.has(k)) return true;
+    
+    // In mobile mode, map touch state to keys
+    if (this.mobileMode && this.touchState) {
+      if (k === ' ' && this.touchState.shooting) return true;
+      if (k === 'y' && this.touchState.shieldActive) return true;
+      if (k === 't' && this.touchState.turboActive) return true;
+    }
+    
+    return false;
   }
 
   /**
    * Check if a key was just pressed this frame.
+   * In mobile mode, checks touch state for bomb trigger.
    */
   isJustPressed(key: string): boolean {
-    return this.justPressed.has(key.toLowerCase());
+    const k = key.toLowerCase();
+    
+    if (this.justPressed.has(k)) return true;
+    
+    // Bomb requires special handling (250ms hold triggers "just pressed")
+    if (this.mobileMode && this.touchState && k === 'b' && this.touchState.bombTriggered) {
+      return true;
+    }
+    
+    return false;
   }
 
   /**

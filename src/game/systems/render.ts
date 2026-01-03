@@ -22,7 +22,7 @@ import {
   Explosion,
   Player,
 } from '../components';
-import { CanvasContext, GameState } from '../resources';
+import { CanvasContext, GameState, Input } from '../resources';
 import { isBombAvailable, getBombRadii } from './bomb';
 
 /**
@@ -199,13 +199,15 @@ export function renderSystem(world: World): void {
           ctx.arc(pos.x, pos.y, inner, 0, Math.PI * 2);
           ctx.stroke();
           
-          // "BOMB READY" indicator
+          // "BOMB READY" indicator (hide [B] key hint on mobile)
           ctx.setLineDash([]);
           ctx.fillStyle = '#ffff00';
           ctx.font = '10px "JetBrains Mono", monospace';
           ctx.textAlign = 'center';
           ctx.globalAlpha = 0.8;
-          ctx.fillText('BOMB READY [B]', pos.x, pos.y - h * 0.8 - 30);
+          const input = world.getResource(Input);
+          const bombText = input?.isMobileMode() ? 'BOMB READY' : 'BOMB READY [B]';
+          ctx.fillText(bombText, pos.x, pos.y - h * 0.8 - 30);
           
           ctx.restore();
         }

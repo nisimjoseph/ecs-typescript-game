@@ -10,11 +10,13 @@
  * - OBSERVERS: Reactive component hooks
  * - CHANGE DETECTION: Track component changes
  * - QUERY FILTERS: With/Without filters
+ * - MOBILE SUPPORT: Touch controls with virtual joystick
  * 
  * Interacts with:
  * - All ECS modules for core functionality
  * - game/logic modules for game-specific systems
  * - game/systems for reusable systems
+ * - game/mobile_controls for touch input
  */
 
 import { App, ObserverRegistry } from './ecs';
@@ -28,12 +30,15 @@ import {
   BossSpawnTimer,
   Input,
   SoundManager,
+  MobileControlsResource,
 } from './game/resources';
 import { GameEvents } from './game/events';
+import { MobileControls, isMobileDevice } from './game/mobile_controls';
 
 // Import system descriptors from game/systems
 import {
   inputClearSystemDescriptor,
+  mobileInputSyncSystemDescriptor,
   playerInputSystemDescriptor,
   playerShootSystemDescriptor,
   shieldSystemDescriptor,
@@ -62,6 +67,7 @@ import {
   collisionWithEventsSystemDescriptor,
   bossSpawnSystemDescriptor,
   setupButtonHandlers,
+  resetGame,
 } from './game/logic';
 
 // ============ MAIN INITIALIZATION ============
@@ -80,9 +86,25 @@ function main(): void {
     return;
   }
 
-  // Set canvas size
-  canvas.width = 800;
-  canvas.height = 500;
+  // Check for mobile mode
+  const isMobile = isMobileDevice();
+  console.log(`📱 Mobile mode: ${isMobile}`);
+
+  // Set canvas size based on mode
+  if (isMobile) {
+    document.body.classList.add('mobile-mode');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Handle resize for mobile
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  } else {
+    canvas.width = 800;
+    canvas.height = 500;
+  }
 
   // Create sound manager and initialize on first user interaction
   const soundManager = new SoundManager();
@@ -92,16 +114,30 @@ function main(): void {
     soundManager.initialize();
     window.removeEventListener('click', initAudio);
     window.removeEventListener('keydown', initAudio);
+    window.removeEventListener('touchstart', initAudio);
   };
   window.addEventListener('click', initAudio);
   window.addEventListener('keydown', initAudio);
+  window.addEventListener('touchstart', initAudio);
+  
+  // Create input resource
+  const inputResource = new Input();
+  
+  // Initialize mobile controls if on mobile
+  let mobileControls: MobileControls | null = null;
+  if (isMobile) {
+    mobileControls = new MobileControls(canvas);
+    inputResource.setMobileMode(true);
+    console.log('📱 Mobile controls initialized');
+  }
 
   // Create the App with ALL features
   const app = new App()
     // ============ RESOURCES ============
     .insertResource(new GameConfig(canvas.width, canvas.height))
     .insertResource(new GameState())
-    .insertResource(new Input())
+    .insertResource(inputResource) // Use the pre-configured input resource
+    .insertResource(new MobileControlsResource(mobileControls)) // Mobile controls
     .insertResource(new CanvasContext(canvas))
     .insertResource(new Logger())
     .insertResource(new SpawnTimer(2))
@@ -119,7 +155,8 @@ function main(): void {
 
     // ============ FRAME SYSTEMS ============
 
-    // Stage.PreUpdate: Input processing
+    // Stage.PreUpdate: Input processing (mobile sync first)
+    .addSystem(mobileInputSyncSystemDescriptor)
     .addSystem(playerInputSystemDescriptor)
     .addSystem(playerShootSystemDescriptor)
     .addSystem(shieldSystemDescriptor)
@@ -153,6 +190,23 @@ function main(): void {
 
   // Set up button handlers with bundle-based spawning
   setupButtonHandlers(app, canvas);
+
+  // Set up mobile reset callback
+  if (mobileControls) {
+    mobileControls.setResetCallback(() => {
+      resetGame(app, app.getWorld(), canvas);
+      // Re-setup mobile mode after reset
+      const newInput = app.getWorld().getResource(Input);
+      if (newInput) {
+        newInput.setMobileMode(true);
+      }
+      // Update mobile controls resource
+      const mobileRes = app.getWorld().getResource(MobileControlsResource);
+      if (mobileRes) {
+        mobileRes.controls = mobileControls;
+      }
+    });
+  }
 
   // Run the game!
   app.run();

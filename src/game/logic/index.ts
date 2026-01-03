@@ -59,4 +59,4 @@ export {
 } from './boss';
 
 // UI handlers
-export { setupButtonHandlers } from './ui_handlers';
+export { setupButtonHandlers, resetGame } from './ui_handlers';
