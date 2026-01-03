@@ -93,7 +93,7 @@ export class MobileControls {
   
   // Reset button (top center, for game over)
   private resetButtonCenter = { x: 0, y: 0 };
-  private resetButtonSize = { width: 120, height: 40 };
+  private resetButtonSize = { width: 140, height: 50 };
   private resetCallback: ResetCallback | null = null;
   private showReset = false;
   
@@ -195,10 +195,10 @@ export class MobileControls {
       y: h - bottomOffset - buttonSpacing * 2,
     };
     
-    // Reset button (top center)
+    // Reset button (top center, below safe area for notch)
     this.resetButtonCenter = {
       x: w / 2,
-      y: 40,
+      y: 70,
     };
     
     // Mute button (top left)
