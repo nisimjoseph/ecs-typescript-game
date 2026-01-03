@@ -57,6 +57,7 @@ export class SoundManager {
   private sounds: Map<string, AudioBuffer> = new Map();
   private isInitialized = false;
   private masterVolume = 0.5;
+  private muted = false;
 
   /**
    * Initialize the audio system.
@@ -111,7 +112,7 @@ export class SoundManager {
    * Play a sound by name with optional volume.
    */
   private playSound(name: string, volume: number = 1.0): void {
-    if (!this.audioContext || !this.isInitialized) return;
+    if (!this.audioContext || !this.isInitialized || this.muted) return;
 
     const buffer = this.sounds.get(name);
     if (!buffer) {
@@ -205,5 +206,19 @@ export class SoundManager {
    */
   isReady(): boolean {
     return this.isInitialized;
+  }
+  
+  /**
+   * Set muted state.
+   */
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+  }
+  
+  /**
+   * Get muted state.
+   */
+  isMuted(): boolean {
+    return this.muted;
   }
 }

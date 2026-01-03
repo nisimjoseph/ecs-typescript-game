@@ -4,7 +4,9 @@ A **complete** Entity Component System (ECS) implementation in TypeScript, inspi
 
 ## 🕹️ [Play the Live Demo](https://nisimjoseph.github.io/ecs-typescript-game/demo/)
 
-> **Controls:** WASD to move, Arrow keys to rotate, SPACE to shoot, Y for shield, T for turbo, B for bomb
+> **Desktop Controls:** WASD to move, Arrow keys to rotate, SPACE to shoot, Y for shield, T for turbo, B for bomb
+>
+> **📱 Mobile:** Touch controls with virtual joystick and action buttons
 
 ## ✅ Features Implemented
 
@@ -26,6 +28,7 @@ A **complete** Entity Component System (ECS) implementation in TypeScript, inspi
 - **Observers** - Reactive component hooks (OnAdd/OnChange/OnRemove)
 - **Hierarchy** - Parent/Child relationships
 - **Query Filters** - With/Without/Added/Changed
+- **📱 Mobile Support** - Touch controls with virtual joystick
 
 ---
 
@@ -561,11 +564,24 @@ Open http://localhost:8080 to play the demo game.
 The demo game demonstrates ALL ECS features:
 
 ### Controls
+
+**Desktop:**
 - **WASD** - Move player (world directions)
 - **↑/↓ Arrow Keys** - Move forward/backward (facing direction)
 - **←/→ Arrow Keys** - Rotate player
 - **SPACE** - Shoot in facing direction
+- **Y** - Shield (hold)
+- **T** - Turbo (hold)
+- **B** - Bomb (requires full shield + turbo)
 - **Buttons** - Spawn enemies, boss, power-ups, reset
+
+**📱 Mobile:**
+- **Virtual Joystick** (right) - Move and aim
+- **Shoot Button** (left, yellow) - Fire bullets
+- **Shield Button** (left, cyan) - Hold for shield
+- **Turbo Button** (left, orange) - Hold for speed boost
+- **Bomb Button** (left, orange) - Hold 250ms to trigger bomb
+- **Restart Button** (top) - Appears on game over
 
 ### Features Demonstrated
 

@@ -93,13 +93,41 @@ function main(): void {
   // Set canvas size based on mode
   if (isMobile) {
     document.body.classList.add('mobile-mode');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    
+    // Get device pixel ratio for sharp rendering
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = window.innerWidth;
+    const displayHeight = window.innerHeight;
+    
+    // Set canvas buffer to match display size (accounting for DPR)
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    
+    // Scale canvas CSS to fill screen
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
+    
+    // Scale context to account for DPR
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+    }
     
     // Handle resize for mobile
     window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const newDpr = window.devicePixelRatio || 1;
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+      
+      canvas.width = newWidth * newDpr;
+      canvas.height = newHeight * newDpr;
+      canvas.style.width = `${newWidth}px`;
+      canvas.style.height = `${newHeight}px`;
+      
+      const resizeCtx = canvas.getContext('2d');
+      if (resizeCtx) {
+        resizeCtx.scale(newDpr, newDpr);
+      }
     });
   } else {
     canvas.width = 800;
@@ -131,10 +159,14 @@ function main(): void {
     console.log('📱 Mobile controls initialized');
   }
 
+  // Calculate logical canvas size (for game logic, not buffer size)
+  const logicalWidth = isMobile ? window.innerWidth : canvas.width;
+  const logicalHeight = isMobile ? window.innerHeight : canvas.height;
+
   // Create the App with ALL features
   const app = new App()
     // ============ RESOURCES ============
-    .insertResource(new GameConfig(canvas.width, canvas.height))
+    .insertResource(new GameConfig(logicalWidth, logicalHeight))
     .insertResource(new GameState())
     .insertResource(inputResource) // Use the pre-configured input resource
     .insertResource(new MobileControlsResource(mobileControls)) // Mobile controls
@@ -191,8 +223,9 @@ function main(): void {
   // Set up button handlers with bundle-based spawning
   setupButtonHandlers(app, canvas);
 
-  // Set up mobile reset callback
+  // Set up mobile callbacks
   if (mobileControls) {
+    // Reset callback
     mobileControls.setResetCallback(() => {
       resetGame(app, app.getWorld(), canvas);
       // Re-setup mobile mode after reset
@@ -205,6 +238,11 @@ function main(): void {
       if (mobileRes) {
         mobileRes.controls = mobileControls;
       }
+    });
+    
+    // Mute callback
+    mobileControls.setMuteCallback((muted: boolean) => {
+      soundManager.setMuted(muted);
     });
   }
 

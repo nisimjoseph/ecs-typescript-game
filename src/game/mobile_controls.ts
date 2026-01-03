@@ -17,7 +17,17 @@ export function isMobileDevice(): boolean {
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
   );
-  return hasTouchScreen || isMobileUA;
+  
+  // Check for coarse pointer (touch screens)
+  const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
+  
+  // Check viewport size (mobile typically < 1024px width)
+  const isSmallViewport = window.innerWidth <= 1024 && window.innerHeight <= 1366;
+  
+  // Check device pixel ratio + small screen (common on mobile)
+  const isHighDPISmallScreen = window.devicePixelRatio > 1 && window.innerWidth < 500;
+  
+  return hasTouchScreen || isMobileUA || hasCoarsePointer || isSmallViewport || isHighDPISmallScreen;
 }
 
 /** Touch input state for the game */
@@ -49,6 +59,9 @@ const ACTION_BUTTONS: ActionButtonConfig[] = [
 
 /** Callback type for reset button */
 export type ResetCallback = () => void;
+
+/** Callback type for mute toggle */
+export type MuteToggleCallback = (muted: boolean) => void;
 
 /**
  * Mobile controls manager - handles touch input and renders controls overlay.
@@ -83,6 +96,16 @@ export class MobileControls {
   private resetButtonSize = { width: 120, height: 40 };
   private resetCallback: ResetCallback | null = null;
   private showReset = false;
+  
+  // Mute button (top left)
+  private muteButtonCenter = { x: 0, y: 0 };
+  private muteButtonRadius = 16;
+  private isMuted = false;
+  private muteCallback: MuteToggleCallback | null = null;
+  
+  // Mouse state (for desktop testing)
+  private mouseDown = false;
+  private mouseId = -1; // Fake touch ID for mouse
   
   // Input state
   private inputState: TouchInputState = {
@@ -177,116 +200,167 @@ export class MobileControls {
       x: w / 2,
       y: 40,
     };
+    
+    // Mute button (top left)
+    this.muteButtonCenter = {
+      x: 28,
+      y: 28,
+    };
   }
 
-  /** Setup touch event listeners */
+  /** Setup touch and mouse event listeners */
   private setupTouchListeners(): void {
+    // Touch events
     this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
     this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
     this.canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
     this.canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
+    
+    // Mouse events (for desktop testing)
+    this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+    this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+    this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+    this.canvas.addEventListener('mouseleave', (e) => this.onMouseUp(e));
+  }
+  
+  private onMouseDown(e: MouseEvent): void {
+    e.preventDefault();
+    this.mouseDown = true;
+    this.handlePointerStart(e.clientX, e.clientY, this.mouseId);
+  }
+  
+  private onMouseMove(e: MouseEvent): void {
+    if (!this.mouseDown) return;
+    e.preventDefault();
+    this.handlePointerMove(e.clientX, e.clientY, this.mouseId);
+  }
+  
+  private onMouseUp(e: MouseEvent): void {
+    if (!this.mouseDown) return;
+    e.preventDefault();
+    this.mouseDown = false;
+    this.handlePointerEnd(this.mouseId);
   }
 
   private onTouchStart(e: TouchEvent): void {
     e.preventDefault();
-    
     for (const touch of Array.from(e.changedTouches)) {
-      const x = touch.clientX;
-      const y = touch.clientY;
-      
-      // Check joystick
-      const joystickDist = this.distance(x, y, this.joystickCenter.x, this.joystickCenter.y);
-      if (joystickDist <= this.joystickRadius && this.joystickTouchId === null) {
-        this.joystickActive = true;
-        this.joystickTouchId = touch.identifier;
-        this.updateJoystickKnob(x, y);
-        continue;
-      }
-      
-      // Check shoot button
-      const shootDist = this.distance(x, y, this.shootButtonCenter.x, this.shootButtonCenter.y);
-      if (shootDist <= this.shootButtonRadius && this.shootTouchId === null) {
-        this.shootActive = true;
-        this.shootTouchId = touch.identifier;
-        this.inputState.shooting = true;
-        continue;
-      }
-      
-      // Check action buttons
-      for (const [id, pos] of this.buttonPositions) {
-        const dist = this.distance(x, y, pos.x, pos.y);
-        if (dist <= this.buttonRadius && !this.activeButtons.has(id)) {
-          this.activeButtons.set(id, {
-            touchId: touch.identifier,
-            startTime: Date.now(),
-          });
-          
-          // Immediate activation for shield/turbo
-          if (id === 'shield') {
-            this.inputState.shieldActive = true;
-          } else if (id === 'turbo') {
-            this.inputState.turboActive = true;
-          }
-          break;
-        }
-      }
-      
-      // Check reset button
-      if (this.showReset) {
-        const { x: rx, y: ry } = this.resetButtonCenter;
-        const halfW = this.resetButtonSize.width / 2;
-        const halfH = this.resetButtonSize.height / 2;
-        const inResetButton = x >= rx - halfW && x <= rx + halfW && y >= ry - halfH && y <= ry + halfH;
-        if (inResetButton && this.resetCallback) {
-          this.resetCallback();
-        }
-      }
+      this.handlePointerStart(touch.clientX, touch.clientY, touch.identifier);
     }
   }
 
   private onTouchMove(e: TouchEvent): void {
     e.preventDefault();
-    
     for (const touch of Array.from(e.changedTouches)) {
-      // Update joystick
-      if (touch.identifier === this.joystickTouchId) {
-        this.updateJoystickKnob(touch.clientX, touch.clientY);
-      }
+      this.handlePointerMove(touch.clientX, touch.clientY, touch.identifier);
     }
   }
 
   private onTouchEnd(e: TouchEvent): void {
     e.preventDefault();
-    
     for (const touch of Array.from(e.changedTouches)) {
-      // Release joystick
-      if (touch.identifier === this.joystickTouchId) {
-        this.joystickActive = false;
-        this.joystickTouchId = null;
-        this.joystickKnob = { ...this.joystickCenter };
-        this.inputState.moveX = 0;
-        this.inputState.moveY = 0;
+      this.handlePointerEnd(touch.identifier);
+    }
+  }
+  
+  /** Shared pointer start handler (touch or mouse) */
+  private handlePointerStart(x: number, y: number, pointerId: number): void {
+    // Check mute button first
+    const muteDist = this.distance(x, y, this.muteButtonCenter.x, this.muteButtonCenter.y);
+    if (muteDist <= this.muteButtonRadius) {
+      this.isMuted = !this.isMuted;
+      if (this.muteCallback) {
+        this.muteCallback(this.isMuted);
       }
-      
-      // Release shoot button
-      if (touch.identifier === this.shootTouchId) {
-        this.shootActive = false;
-        this.shootTouchId = null;
-        this.inputState.shooting = false;
-      }
-      
-      // Release action buttons
-      for (const [id, state] of this.activeButtons) {
-        if (state.touchId === touch.identifier) {
-          this.activeButtons.delete(id);
-          
-          if (id === 'shield') {
-            this.inputState.shieldActive = false;
-          } else if (id === 'turbo') {
-            this.inputState.turboActive = false;
-          }
-          break;
+      return;
+    }
+    
+    // Check joystick
+    const joystickDist = this.distance(x, y, this.joystickCenter.x, this.joystickCenter.y);
+    if (joystickDist <= this.joystickRadius && this.joystickTouchId === null) {
+      this.joystickActive = true;
+      this.joystickTouchId = pointerId;
+      this.updateJoystickKnob(x, y);
+      return;
+    }
+    
+    // Check shoot button
+    const shootDist = this.distance(x, y, this.shootButtonCenter.x, this.shootButtonCenter.y);
+    if (shootDist <= this.shootButtonRadius && this.shootTouchId === null) {
+      this.shootActive = true;
+      this.shootTouchId = pointerId;
+      this.inputState.shooting = true;
+      return;
+    }
+    
+    // Check action buttons
+    for (const [id, pos] of this.buttonPositions) {
+      const dist = this.distance(x, y, pos.x, pos.y);
+      if (dist <= this.buttonRadius && !this.activeButtons.has(id)) {
+        this.activeButtons.set(id, {
+          touchId: pointerId,
+          startTime: Date.now(),
+        });
+        
+        // Immediate activation for shield/turbo
+        if (id === 'shield') {
+          this.inputState.shieldActive = true;
+        } else if (id === 'turbo') {
+          this.inputState.turboActive = true;
         }
+        return;
+      }
+    }
+    
+    // Check reset button
+    if (this.showReset) {
+      const { x: rx, y: ry } = this.resetButtonCenter;
+      const halfW = this.resetButtonSize.width / 2;
+      const halfH = this.resetButtonSize.height / 2;
+      const inResetButton = x >= rx - halfW && x <= rx + halfW && y >= ry - halfH && y <= ry + halfH;
+      if (inResetButton && this.resetCallback) {
+        this.resetCallback();
+      }
+    }
+  }
+  
+  /** Shared pointer move handler (touch or mouse) */
+  private handlePointerMove(x: number, y: number, pointerId: number): void {
+    // Update joystick
+    if (pointerId === this.joystickTouchId) {
+      this.updateJoystickKnob(x, y);
+    }
+  }
+  
+  /** Shared pointer end handler (touch or mouse) */
+  private handlePointerEnd(pointerId: number): void {
+    // Release joystick
+    if (pointerId === this.joystickTouchId) {
+      this.joystickActive = false;
+      this.joystickTouchId = null;
+      this.joystickKnob = { ...this.joystickCenter };
+      this.inputState.moveX = 0;
+      this.inputState.moveY = 0;
+    }
+    
+    // Release shoot button
+    if (pointerId === this.shootTouchId) {
+      this.shootActive = false;
+      this.shootTouchId = null;
+      this.inputState.shooting = false;
+    }
+    
+    // Release action buttons
+    for (const [id, state] of this.activeButtons) {
+      if (state.touchId === pointerId) {
+        this.activeButtons.delete(id);
+        
+        if (id === 'shield') {
+          this.inputState.shieldActive = false;
+        } else if (id === 'turbo') {
+          this.inputState.turboActive = false;
+        }
+        break;
       }
     }
   }
@@ -350,6 +424,16 @@ export class MobileControls {
   setShowReset(show: boolean): void {
     this.showReset = show;
   }
+  
+  /** Set callback for mute toggle */
+  setMuteCallback(callback: MuteToggleCallback): void {
+    this.muteCallback = callback;
+  }
+  
+  /** Set mute state (for syncing with external audio state) */
+  setMuted(muted: boolean): void {
+    this.isMuted = muted;
+  }
 
   /** Render controls overlay */
   private render = (): void => {
@@ -375,6 +459,9 @@ export class MobileControls {
     if (this.showReset) {
       this.drawResetButton(ctx);
     }
+    
+    // Draw mute button (always visible)
+    this.drawMuteButton(ctx);
     
     requestAnimationFrame(this.render);
   };
@@ -489,6 +576,32 @@ export class MobileControls {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#0a0a0f';
     ctx.fillText('RESTART', x, y);
+  }
+  
+  private drawMuteButton(ctx: CanvasRenderingContext2D): void {
+    const { x, y } = this.muteButtonCenter;
+    
+    // Button background (10% alpha)
+    ctx.beginPath();
+    ctx.arc(x, y, this.muteButtonRadius, 0, Math.PI * 2);
+    ctx.fillStyle = this.isMuted 
+      ? 'rgba(255, 100, 100, 0.1)' 
+      : 'rgba(100, 255, 100, 0.1)';
+    ctx.fill();
+    ctx.strokeStyle = this.isMuted 
+      ? 'rgba(255, 100, 100, 0.3)' 
+      : 'rgba(100, 255, 100, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Icon
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(this.isMuted ? '🔇' : '🔊', x, y);
+    ctx.globalAlpha = 1;
   }
 
   /** Show the mobile controls */
